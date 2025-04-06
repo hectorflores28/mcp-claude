@@ -1,25 +1,26 @@
-# Usar una imagen base de Python
+# Usar una imagen base de Python 3.9
 FROM python:3.9-slim
 
-# Establecer directorio de trabajo
+# Establecer el directorio de trabajo
 WORKDIR /app
 
 # Instalar dependencias del sistema
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
     build-essential \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar archivos de requisitos
+# Copiar requirements.txt
 COPY requirements.txt .
 
 # Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/data /app/temp
+
 # Copiar el código de la aplicación
 COPY . .
-
-# Crear directorios necesarios
-RUN mkdir -p logs data temp
 
 # Exponer el puerto
 EXPOSE 8000
@@ -28,7 +29,7 @@ EXPOSE 8000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
-# Healthcheck
+# Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/ || exit 1
 
