@@ -14,6 +14,7 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 - ✅ Manejo de errores y validaciones
 - ✅ Autenticación mediante API keys
 - ✅ Protocolo JSON-RPC 2.0 para comunicación
+- ✅ Soporte para Docker y Docker Compose
 
 ## Estado Actual del Proyecto
 
@@ -40,6 +41,11 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
   - `/api/tools`: Listado de herramientas MCP disponibles
   - `/api/tools/execute`: Ejecución de herramientas MCP
   - `/mcp/execute`: Endpoint principal para protocolo JSON-RPC 2.0
+- Configuración Docker:
+  - Dockerfile para producción
+  - Docker Compose para desarrollo y producción
+  - Health checks
+  - Volúmenes persistentes
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
@@ -95,7 +101,7 @@ mcp-claude/
 - Uvicorn
 - Python-dotenv
 - Requests
-- Docker (opcional)
+- Docker y Docker Compose (opcional)
 
 ## Configuración
 

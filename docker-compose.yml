@@ -1,29 +1,49 @@
 version: "3.8"
 
 services:
-  api:
+  mcp-server:
     build: .
+    container_name: mcp-claude-server
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./temp:/app/temp
+    env_file:
+      - .env
+    environment:
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - mcp-network
+
+  # Servicio opcional para desarrollo con hot-reload
+  mcp-dev:
+    build: .
+    container_name: mcp-claude-dev
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
     volumes:
       - .:/app
       - ./logs:/app/logs
       - ./data:/app/data
-    environment:
-      - HOST=0.0.0.0
-      - PORT=8000
-      - DEBUG=True
+      - ./temp:/app/temp
     env_file:
       - .env
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  docs:
-    image: swaggerapi/swagger-ui
-    ports:
-      - "8080:8080"
     environment:
-      - SWAGGER_JSON=/app/openapi.json
-    volumes:
-      - ./openapi.json:/app/openapi.json
-    depends_on:
-      - api
+      - ENVIRONMENT=development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - mcp-network
+
+networks:
+  mcp-network:
+    driver: bridge
