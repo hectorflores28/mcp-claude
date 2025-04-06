@@ -1,13 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from typing import List, Dict, Any
-from app.schemas.mcp import MCPToolsResponse, ToolDefinition, MCPRequest, MCPResponse
-from app.schemas.search import SearchToolSchema
-from app.schemas.filesystem import FileSystemToolSchema
-from app.core.logging import LogManager
-from app.core.search import BraveSearch
-from app.core.filesystem import FileSystem
-from app.core.claude import ClaudeClient
+from typing import List, Dict, Any, Optional
 from app.core.security import verify_api_key
+from app.schemas.mcp import ToolDefinition, MCPToolsResponse, MCPRequest, MCPResponse, MCPError
+from app.services.brave_search import BraveSearch
+from app.services.filesystem_service import FileSystemService
+from app.services.claude_service import ClaudeService
+from app.core.logging import LogManager
 
 router = APIRouter(prefix="/tools", tags=["tools"])
 
@@ -69,6 +67,54 @@ AVAILABLE_TOOLS = [
             },
             "required": ["operation", "filename"]
         }
+    ),
+    ToolDefinition(
+        name="generar_markdown",
+        description="Genera contenido en formato Markdown usando Claude",
+        parameters={
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "description": "Contenido a formatear"
+                },
+                "format_type": {
+                    "type": "string",
+                    "description": "Tipo de formato (article, documentation, etc.)",
+                    "default": "article"
+                },
+                "save": {
+                    "type": "boolean",
+                    "description": "Si se debe guardar el archivo",
+                    "default": False
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Nombre del archivo a guardar"
+                }
+            },
+            "required": ["content"]
+        }
+    ),
+    ToolDefinition(
+        name="analizar_texto",
+        description="Analiza un texto usando Claude",
+        parameters={
+            "type": "object",
+            "properties": {
+                "text": {
+                    "type": "string",
+                    "description": "Texto a analizar"
+                },
+                "analysis_type": {
+                    "type": "string",
+                    "description": "Tipo de análisis (summary, concepts, sentiment)",
+                    "enum": ["summary", "concepts", "sentiment"],
+                    "default": "summary"
+                }
+            },
+            "required": ["text"]
+        }
     )
 ]
 
@@ -103,78 +149,116 @@ async def list_tools(
         )
 
 @router.post("/execute", response_model=MCPResponse)
-async def execute_tool(request: MCPRequest):
+async def execute_tool(
+    request: MCPRequest,
+    api_key: str = Depends(verify_api_key)
+):
     """
     Ejecuta una herramienta MCP específica.
     
     Args:
-        request: Solicitud con la herramienta y parámetros a ejecutar
+        request: Solicitud MCP con el método y parámetros
+        api_key: API key para autenticación
         
     Returns:
-        Resultado de la ejecución de la herramienta
+        MCPResponse: Resultado de la ejecución de la herramienta
     """
     try:
-        # Registrar la solicitud
-        LogManager.log_api_request("POST", "/api/v1/tools/execute", request.dict())
+        # Validar que el método sea execute_tool
+        if request.method != "execute_tool":
+            return MCPResponse(
+                jsonrpc="2.0",
+                error=MCPError(
+                    code=-32601,
+                    message=f"Método no soportado: {request.method}"
+                ),
+                id=request.id
+            )
         
-        # Ejecutar la herramienta correspondiente
-        if request.tool == "buscar_en_brave":
-            search = BraveSearch()
-            result = await search.search(
-                query=request.parameters["query"],
-                num_results=request.parameters.get("num_results", 5),
-                analyze=request.parameters.get("analyze", False)
-            )
-            
-        elif request.tool == "filesystem":
-            fs = FileSystem()
-            operation = request.parameters["operation"]
-            
-            if operation == "create":
-                result = await fs.create_file(
-                    filename=request.parameters["filename"],
-                    content=request.parameters["content"]
-                )
-            elif operation == "read":
-                result = await fs.read_file(request.parameters["filename"])
-            elif operation == "list":
-                result = await fs.list_files()
-            elif operation == "delete":
-                result = await fs.delete_file(request.parameters["filename"])
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Operación no válida: {operation}"
-                )
-                
-        elif request.tool == "generar_markdown":
-            claude = ClaudeClient()
-            result = await claude.generate_markdown(
-                content=request.parameters["content"],
-                format_type=request.parameters.get("format_type", "article"),
-                save=request.parameters.get("save", False),
-                filename=request.parameters.get("filename")
-            )
-            
-        elif request.tool == "analizar_texto":
-            claude = ClaudeClient()
-            result = await claude.analyze_text(
-                text=request.parameters["text"],
-                analysis_type=request.parameters["analysis_type"]
-            )
-            
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Herramienta no válida: {request.tool}"
-            )
-            
-        return MCPResponse(result=result)
+        # Extraer parámetros
+        tool_name = request.params.get("tool_name")
+        parameters = request.params.get("parameters", {})
+        
+        # Registrar operación
+        LogManager.log_operation(
+            "tools",
+            "execute_tool",
+            {"tool": tool_name, "parameters": parameters}
+        )
+        
+        # Ejecutar herramienta según su nombre
+        result = await _execute_tool_by_name(tool_name, parameters)
+        
+        return MCPResponse(
+            jsonrpc="2.0",
+            result=result,
+            id=request.id
+        )
         
     except Exception as e:
-        # Registrar el error
-        LogManager.log_error("execute_tool", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al ejecutar herramienta: {str(e)}"
-        ) 
+        LogManager.log_error("tools", str(e))
+        return MCPResponse(
+            jsonrpc="2.0",
+            error=MCPError(
+                code=-32000,
+                message=f"Error al ejecutar herramienta: {str(e)}"
+            ),
+            id=request.id if hasattr(request, 'id') else None
+        )
+
+async def _execute_tool_by_name(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ejecuta una herramienta específica según su nombre.
+    
+    Args:
+        tool_name: Nombre de la herramienta a ejecutar
+        parameters: Parámetros para la herramienta
+        
+    Returns:
+        Dict[str, Any]: Resultado de la ejecución
+    """
+    if tool_name == "buscar_en_brave":
+        search_service = BraveSearch()
+        return await search_service.search(
+            query=parameters.get("query", ""),
+            num_results=parameters.get("num_results", 5),
+            country=parameters.get("country", "es"),
+            language=parameters.get("language", "es"),
+            analyze=parameters.get("analyze", False)
+        )
+        
+    elif tool_name == "gestionar_archivo":
+        filesystem_service = FileSystemService()
+        operation = parameters.get("operation", "")
+        filename = parameters.get("filename", "")
+        content = parameters.get("content", "")
+        
+        if operation == "create":
+            return await filesystem_service.create_file(filename, content)
+        elif operation == "read":
+            return await filesystem_service.read_file(filename)
+        elif operation == "update":
+            return await filesystem_service.update_file(filename, content)
+        elif operation == "delete":
+            return await filesystem_service.delete_file(filename)
+        else:
+            raise ValueError(f"Operación no válida: {operation}")
+            
+    elif tool_name == "generar_markdown":
+        claude_service = ClaudeService()
+        return await claude_service.generate_markdown(
+            content=parameters.get("content", ""),
+            format_type=parameters.get("format_type", "article"),
+            save=parameters.get("save", False),
+            filename=parameters.get("filename", None)
+        )
+        
+    elif tool_name == "analizar_texto":
+        claude_service = ClaudeService()
+        return await claude_service.analyze_text(
+            text=parameters.get("text", ""),
+            analysis_type=parameters.get("analysis_type", "summary")
+        )
+        
+    else:
+        raise ValueError(f"Herramienta no encontrada: {tool_name}") 

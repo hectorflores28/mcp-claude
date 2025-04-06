@@ -38,14 +38,15 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
   - `/api/search`: Búsqueda web con Brave Search
   - `/api/filesystem`: Operaciones CRUD en archivos
   - `/api/tools`: Listado de herramientas MCP disponibles
+  - `/api/tools/execute`: Ejecución de herramientas MCP
+  - `/mcp/execute`: Endpoint principal para protocolo JSON-RPC 2.0
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
 - Mejoras en el sistema de logging
 - Optimización de rendimiento
 - Documentación detallada de uso
-- Endpoint `/api/tools/execute` para ejecución de herramientas MCP
-- Integración completa con el protocolo JSON-RPC 2.0
+- Ejemplos de uso para cada funcionalidad principal
 
 ### Pendiente 📋
 - Interfaz web de administración
@@ -143,7 +144,28 @@ http://localhost:8000/docs
 
 ### Herramientas MCP
 - `GET /api/tools`: Lista todas las herramientas MCP disponibles
-- `POST /api/tools/execute`: Ejecuta una herramienta MCP específica (en desarrollo)
+- `POST /api/tools/execute`: Ejecuta una herramienta MCP específica
+
+### Protocolo JSON-RPC 2.0
+- `POST /mcp/execute`: Endpoint principal para ejecutar herramientas MCP según el protocolo JSON-RPC 2.0
+
+## Ejemplo de Uso del Protocolo JSON-RPC 2.0
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "execute_tool",
+  "params": {
+    "tool_name": "buscar_en_brave",
+    "parameters": {
+      "query": "últimas noticias de IA",
+      "num_results": 5,
+      "analyze": true
+    }
+  },
+  "id": 1
+}
+```
 
 ## Desarrollo
 
