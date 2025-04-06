@@ -13,6 +13,7 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 - ✅ Sistema de logging en Markdown
 - ✅ Manejo de errores y validaciones
 - ✅ Autenticación mediante API keys
+- ✅ Protocolo JSON-RPC 2.0 para comunicación
 
 ## Estado Actual del Proyecto
 
@@ -27,12 +28,17 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 - Manejo de errores y validaciones
 - Autenticación básica
 - Documentación API con Swagger
+- Plantillas de prompts para Claude
+- Configuración de variables de entorno
+- Sistema de seguridad con API keys
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
 - Mejoras en el sistema de logging
 - Optimización de rendimiento
 - Documentación detallada de uso
+- Implementación de servicios (brave_search, claude_service, filesystem_service)
+- Implementación de endpoints (search, filesystem, tools)
 
 ### Pendiente 📋
 - Interfaz web de administración
