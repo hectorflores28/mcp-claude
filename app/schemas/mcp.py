@@ -3,40 +3,43 @@ from typing import Dict, List, Optional, Any, Union
 
 class MCPRequest(BaseModel):
     """
-    Solicitud genérica para herramientas MCP
+    Solicitud MCP estándar
     """
-    jsonrpc: str = "2.0"
+    jsonrpc: str = Field("2.0", description="Versión de JSON-RPC")
     method: str = Field(..., description="Método a ejecutar")
     params: Dict[str, Any] = Field(..., description="Parámetros del método")
-    id: Optional[str] = None
+    id: Optional[str] = Field(None, description="Identificador de la solicitud")
 
 class MCPResponse(BaseModel):
     """
-    Respuesta genérica de herramientas MCP
+    Respuesta MCP estándar
     """
-    jsonrpc: str = "2.0"
-    result: Optional[Any] = None
-    error: Optional[Dict[str, Any]] = None
-    id: Optional[str] = None
+    jsonrpc: str = Field("2.0", description="Versión de JSON-RPC")
+    result: Optional[Any] = Field(None, description="Resultado de la operación")
+    error: Optional[Dict[str, Any]] = Field(None, description="Información de error si ocurre")
+    id: Optional[str] = Field(None, description="Identificador de la solicitud")
 
 class MCPError(BaseModel):
-    code: int
-    message: str
-    data: Optional[Any] = None
+    """
+    Error MCP estándar
+    """
+    code: int = Field(..., description="Código de error")
+    message: str = Field(..., description="Mensaje de error")
+    data: Optional[Dict[str, Any]] = Field(None, description="Datos adicionales del error")
 
 class ToolDefinition(BaseModel):
     """
     Definición de una herramienta MCP
     """
-    name: str
-    description: str
-    parameters: Dict[str, Any]
+    name: str = Field(..., description="Nombre de la herramienta")
+    description: str = Field(..., description="Descripción de la herramienta")
+    parameters: Dict[str, Any] = Field(..., description="Esquema de parámetros de la herramienta")
 
 class MCPToolsResponse(BaseModel):
     """
-    Respuesta del endpoint de herramientas
+    Respuesta con lista de herramientas disponibles
     """
-    tools: List[ToolDefinition]
+    tools: List[ToolDefinition] = Field(..., description="Lista de herramientas disponibles")
 
 class MCPExecuteRequest(BaseModel):
     tool: str = Field(..., description="Nombre de la herramienta a ejecutar")
@@ -49,10 +52,24 @@ class MCPExecuteResponse(BaseModel):
     message: Optional[str] = None
 
 class MCPPromptTemplate(BaseModel):
-    name: str
-    description: str
-    template: str
-    parameters: List[str]
+    """
+    Plantilla de prompt MCP
+    """
+    name: str = Field(..., description="Nombre de la plantilla")
+    description: str = Field(..., description="Descripción de la plantilla")
+    template: str = Field(..., description="Plantilla del prompt")
+    variables: List[str] = Field(..., description="Variables requeridas en la plantilla")
 
 class MCPPromptTemplatesResponse(BaseModel):
-    templates: List[MCPPromptTemplate] 
+    templates: List[MCPPromptTemplate]
+
+class MCPOperation(BaseModel):
+    """
+    Operación MCP
+    """
+    type: str = Field(..., description="Tipo de operación")
+    tool: str = Field(..., description="Herramienta utilizada")
+    parameters: Dict[str, Any] = Field(..., description="Parámetros de la operación")
+    result: Optional[Any] = Field(None, description="Resultado de la operación")
+    error: Optional[Dict[str, Any]] = Field(None, description="Error si ocurre")
+    timestamp: str = Field(..., description="Marca de tiempo de la operación") 

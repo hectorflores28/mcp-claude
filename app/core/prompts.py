@@ -1,8 +1,10 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from app.schemas.mcp import MCPPromptTemplate
 
 class PromptTemplates:
-    """Clase para gestionar las plantillas de prompts."""
+    """
+    Plantillas de prompts para diferentes operaciones
+    """
     
     @staticmethod
     def get_templates() -> List[MCPPromptTemplate]:
@@ -86,4 +88,106 @@ Para cada concepto:
         try:
             return template.template.format(**kwargs)
         except KeyError as e:
-            return f"Error al formatear la plantilla: {str(e)}" 
+            return f"Error al formatear la plantilla: {str(e)}"
+
+    @staticmethod
+    def format_prompt(template: str, **kwargs: Any) -> str:
+        """
+        Formatea un prompt con las variables proporcionadas
+        """
+        return template.format(**kwargs)
+    
+    # Prompts para análisis de texto
+    TEXT_ANALYSIS = """
+    Analiza el siguiente texto y proporciona un {analysis_type}:
+    
+    Texto: {text}
+    
+    Por favor, proporciona el análisis en formato Markdown.
+    """
+    
+    # Prompts para generación de Markdown
+    MARKDOWN_GENERATION = """
+    Genera contenido en formato Markdown para el siguiente texto, 
+    siguiendo el estilo de {format_type}:
+    
+    Contenido: {content}
+    
+    Asegúrate de:
+    1. Usar encabezados apropiados
+    2. Incluir listas cuando sea necesario
+    3. Formatear código si está presente
+    4. Añadir enlaces relevantes
+    5. Mantener un estilo consistente
+    """
+    
+    # Prompts para resumen de búsqueda
+    SEARCH_SUMMARY = """
+    Analiza los siguientes resultados de búsqueda y proporciona un resumen conciso:
+    
+    Consulta: {query}
+    Resultados:
+    {results}
+    
+    Por favor, proporciona:
+    1. Un resumen general
+    2. Puntos clave encontrados
+    3. Conclusiones relevantes
+    """
+    
+    # Prompts para edición de archivos
+    FILE_EDIT = """
+    Edita el siguiente contenido en formato Markdown según las instrucciones:
+    
+    Contenido original:
+    {content}
+    
+    Instrucciones de edición:
+    {instructions}
+    
+    Mantén el formato Markdown y asegúrate de preservar la estructura original.
+    """
+    
+    @classmethod
+    def get_text_analysis_prompt(cls, text: str, analysis_type: str) -> str:
+        """
+        Genera un prompt para análisis de texto
+        """
+        return cls.format_prompt(
+            cls.TEXT_ANALYSIS,
+            text=text,
+            analysis_type=analysis_type
+        )
+    
+    @classmethod
+    def get_markdown_generation_prompt(cls, content: str, format_type: str) -> str:
+        """
+        Genera un prompt para generación de Markdown
+        """
+        return cls.format_prompt(
+            cls.MARKDOWN_GENERATION,
+            content=content,
+            format_type=format_type
+        )
+    
+    @classmethod
+    def get_search_summary_prompt(cls, query: str, results: str) -> str:
+        """
+        Genera un prompt para resumen de búsqueda
+        """
+        return cls.format_prompt(
+            cls.SEARCH_SUMMARY,
+            query=query,
+            results=results
+        )
+    
+    @classmethod
+    def get_file_edit_prompt(cls, content: str, instructions: str) -> str:
+        """
+        Genera un prompt para edición de archivos
+        """
+        return cls.format_prompt(
+            cls.FILE_EDIT,
+            content=content,
+            instructions=instructions
+        ) 

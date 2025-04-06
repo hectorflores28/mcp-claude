@@ -1,131 +1,96 @@
-import os
-import json
+import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
-from loguru import logger
+from pathlib import Path
 from app.core.config import settings
+from app.core.markdown_logger import MarkdownLogger
 
-# Configurar el logger
-log_dir = settings.LOG_DIR
-os.makedirs(log_dir, exist_ok=True)
-
-# Configurar el logger para archivos
-logger.add(
-    os.path.join(log_dir, "app.log"),
-    rotation="10 MB",
-    retention="1 week",
-    level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
+# Configurar logging básico
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(settings.LOG_DIR / "app.log"),
+        logging.StreamHandler()
+    ]
 )
 
-# Configurar el logger para errores
-logger.add(
-    os.path.join(log_dir, "error.log"),
-    rotation="10 MB",
-    retention="1 week",
-    level="ERROR",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
-)
+logger = logging.getLogger("mcp-claude")
 
 class LogManager:
-    """Clase para gestionar los logs de la aplicación."""
+    """
+    Gestor centralizado de logs
+    """
+    _markdown_logger = MarkdownLogger()
     
-    @staticmethod
-    def log_operation(
-        operation: str,
-        details: Dict[str, Any],
-        level: str = "INFO"
-    ) -> None:
+    @classmethod
+    def log_info(cls, message: str, **kwargs):
         """
-        Registra una operación en el log.
-        
-        Args:
-            operation: Tipo de operación
-            details: Detalles de la operación
-            level: Nivel de log (INFO, WARNING, ERROR)
+        Registra un mensaje informativo
         """
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "operation": operation,
-            "details": details
-        }
-        
-        # Registrar en el archivo de log
-        log_file = os.path.join(log_dir, "operations.log")
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-        
-        # Registrar con loguru
-        if level == "INFO":
-            logger.info(f"Operación: {operation} | Detalles: {details}")
-        elif level == "WARNING":
-            logger.warning(f"Operación: {operation} | Detalles: {details}")
-        elif level == "ERROR":
-            logger.error(f"Operación: {operation} | Detalles: {details}")
+        logger.info(message, **kwargs)
+        cls._markdown_logger.log_info(message)
     
-    @staticmethod
-    def log_api_request(
-        method: str,
-        path: str,
-        params: Optional[Dict[str, Any]] = None,
-        status_code: int = 200
-    ) -> None:
+    @classmethod
+    def log_error(cls, context: str, message: str, **kwargs):
         """
-        Registra una solicitud API.
-        
-        Args:
-            method: Método HTTP
-            path: Ruta de la API
-            params: Parámetros de la solicitud
-            status_code: Código de estado HTTP
+        Registra un error
         """
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "method": method,
-            "path": path,
-            "params": params or {},
-            "status_code": status_code
-        }
-        
-        # Registrar en el archivo de log
-        log_file = os.path.join(log_dir, "api.log")
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-        
-        # Registrar con loguru
-        level = "INFO" if status_code < 400 else "WARNING" if status_code < 500 else "ERROR"
-        if level == "INFO":
-            logger.info(f"API: {method} {path} | Status: {status_code}")
-        elif level == "WARNING":
-            logger.warning(f"API: {method} {path} | Status: {status_code}")
-        elif level == "ERROR":
-            logger.error(f"API: {method} {path} | Status: {status_code}")
+        logger.error(f"[{context}] {message}", **kwargs)
+        cls._markdown_logger.log_error(context, message)
     
-    @staticmethod
-    def log_error(
-        error_type: str,
-        error_message: str,
-        details: Optional[Dict[str, Any]] = None
-    ) -> None:
+    @classmethod
+    def log_warning(cls, message: str, **kwargs):
         """
-        Registra un error.
-        
-        Args:
-            error_type: Tipo de error
-            error_message: Mensaje de error
-            details: Detalles adicionales
+        Registra una advertencia
         """
-        log_entry = {
-            "timestamp": datetime.now().isoformat(),
-            "error_type": error_type,
-            "error_message": error_message,
-            "details": details or {}
-        }
-        
-        # Registrar en el archivo de log
-        log_file = os.path.join(log_dir, "errors.log")
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(log_entry) + "\n")
-        
-        # Registrar con loguru
-        logger.error(f"Error: {error_type} | Mensaje: {error_message}") 
+        logger.warning(message, **kwargs)
+        cls._markdown_logger.log_warning(message)
+    
+    @classmethod
+    def log_api_request(cls, method: str, path: str, data: dict = None):
+        """
+        Registra una solicitud API
+        """
+        message = f"API Request: {method} {path}"
+        if data:
+            message += f" - Data: {data}"
+        logger.info(message)
+        cls._markdown_logger.log_api_request(method, path, data)
+    
+    @classmethod
+    def log_api_response(cls, method: str, path: str, status_code: int, data: dict = None):
+        """
+        Registra una respuesta API
+        """
+        message = f"API Response: {method} {path} - Status: {status_code}"
+        if data:
+            message += f" - Data: {data}"
+        logger.info(message)
+        cls._markdown_logger.log_api_response(method, path, status_code, data)
+    
+    @classmethod
+    def log_search(cls, query: str, results: list):
+        """
+        Registra una búsqueda
+        """
+        logger.info(f"Search: {query} - Results: {len(results)}")
+        cls._markdown_logger.log_search(query, results)
+    
+    @classmethod
+    def log_file_operation(cls, operation: str, filename: str, details: str = None):
+        """
+        Registra una operación de archivo
+        """
+        message = f"File Operation: {operation} - File: {filename}"
+        if details:
+            message += f" - Details: {details}"
+        logger.info(message)
+        cls._markdown_logger.log_file_operation(operation, filename, details)
+    
+    @classmethod
+    def log_claude_operation(cls, operation: str, prompt: str, response: str):
+        """
+        Registra una operación de Claude
+        """
+        logger.info(f"Claude Operation: {operation}")
+        cls._markdown_logger.log_claude_operation(operation, prompt, response) 
