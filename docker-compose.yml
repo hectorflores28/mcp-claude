@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  mcp-claude:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - BRAVE_API_KEY=${BRAVE_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - MCP_PORT=8000
+      - MCP_HOST=0.0.0.0
+      - DEBUG=True
+      - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - MAX_FILE_SIZE=10485760
+      - ALLOWED_EXTENSIONS=md,txt,json
+      - UPLOAD_DIR=uploads
+      - LOG_DIR=logs
+      - CLAUDE_MODEL=claude-3-opus-20240229
+      - MAX_TOKENS=4096
+      - TEMPERATURE=0.7
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
