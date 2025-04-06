@@ -15,6 +15,8 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
 - ✅ Autenticación mediante API keys
 - ✅ Protocolo JSON-RPC 2.0 para comunicación
 - ✅ Soporte para Docker y Docker Compose
+- ✅ Health checks para monitoreo
+- ✅ Volúmenes persistentes para datos y logs
 
 ## Estado Actual del Proyecto
 
@@ -46,6 +48,11 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
   - Docker Compose para desarrollo y producción
   - Health checks
   - Volúmenes persistentes
+- Seguridad mejorada:
+  - Validación de nombres de archivo
+  - Prevención de directory traversal
+  - Sanitización de entradas
+  - Logging de operaciones críticas
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
@@ -71,7 +78,8 @@ mcp-claude/
 │   │   ├── endpoints/
 │   │   │   ├── search.py
 │   │   │   ├── filesystem.py
-│   │   │   └── tools.py
+│   │   │   ├── tools.py
+│   │   │   └── mcp.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── security.py
@@ -91,6 +99,7 @@ mcp-claude/
 ├── docs/
 ├── .env.example
 ├── requirements.txt
+├── Dockerfile
 └── docker-compose.yml
 ```
 
@@ -100,7 +109,11 @@ mcp-claude/
 - FastAPI
 - Uvicorn
 - Python-dotenv
-- Requests
+- Anthropic (Claude API)
+- Aiohttp
+- Python-magic
+- Aiofiles
+- Pydantic
 - Docker y Docker Compose (opcional)
 
 ## Configuración
@@ -125,6 +138,8 @@ cp .env.example .env
 
 ## Uso
 
+### Desarrollo Local
+
 1. Iniciar el servidor:
 ```bash
 uvicorn app.main:app --reload
@@ -133,6 +148,23 @@ uvicorn app.main:app --reload
 2. Acceder a la documentación API:
 ```
 http://localhost:8000/docs
+```
+
+### Docker
+
+1. Construir y ejecutar con Docker Compose:
+```bash
+# Producción
+docker-compose up mcp-server
+
+# Desarrollo (con hot-reload)
+docker-compose up mcp-dev
+```
+
+2. Acceder a la documentación API:
+```
+http://localhost:8000/docs  # Producción
+http://localhost:8001/docs  # Desarrollo
 ```
 
 ## Endpoints Disponibles
@@ -186,6 +218,10 @@ http://localhost:8000/docs
 - Validación de entrada en todos los endpoints
 - Logging de operaciones críticas
 - Sanitización de operaciones de filesystem
+- Prevención de directory traversal
+- Validación de nombres de archivo
+- Restricción de extensiones permitidas
+- Límite de tamaño de archivo
 
 ## Contribución
 
