@@ -1,11 +1,11 @@
-# MCP-Claude
+# MCP Claude Server
 
-Implementación de un servidor MCP (Model Context Protocol) personalizado utilizando Claude como LLM principal.
+Servidor MCP (Model Context Protocol) para Claude con integración de herramientas externas.
 
-## Características Principales
+## Características principales
 
 - ✅ Integración con Claude API
-- ✅ Búsqueda web mediante Brave Search API
+- ✅ Búsqueda web con Brave Search API
 - ✅ Sistema de archivos local para gestión de documentos
 - ✅ Soporte para creación y edición de archivos Markdown
 - ✅ API RESTful basada en FastAPI

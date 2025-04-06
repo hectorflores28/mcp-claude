@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.core.logging import LogManager
 from app.schemas.search import SearchResult, SearchResponse, SearchAnalysis
 from app.core.prompts import PromptTemplates
+from app.services.claude_service import ClaudeService
 
 class BraveSearch:
     """
@@ -12,11 +13,12 @@ class BraveSearch:
     BASE_URL = "https://api.search.brave.com/res/v1/web/search"
     
     def __init__(self):
-        self.api_key = settings.BRAVE_API_KEY
+        self.api_key = settings.BRAVE_SEARCH_API_KEY
         self.headers = {
             "X-Subscription-Token": self.api_key,
             "Accept": "application/json"
         }
+        self.claude_service = ClaudeService()
     
     async def search(
         self,
@@ -92,6 +94,9 @@ class BraveSearch:
                     if analyze and results:
                         analysis = await self._analyze_results(query, results)
                         search_response.analysis = analysis
+                        
+                        # Guardar análisis en archivo Markdown
+                        await self._save_analysis_to_markdown(query, analysis)
                     
                     return search_response
                     
@@ -124,15 +129,56 @@ class BraveSearch:
             # Obtener prompt para análisis
             prompt = PromptTemplates.get_search_summary_prompt(query, results_text)
             
-            # TODO: Implementar análisis con Claude
-            # Por ahora devolvemos un análisis de ejemplo
+            # Analizar con Claude
+            analysis_text = await self.claude_service.analyze_text(
+                text=results_text,
+                analysis_type="search_results"
+            )
+            
+            # Parsear el análisis
             return SearchAnalysis(
-                summary="Resumen de ejemplo",
-                key_points=["Punto 1", "Punto 2"],
-                relevance_score=0.8,
-                suggested_queries=["Consulta relacionada 1", "Consulta relacionada 2"]
+                summary=analysis_text.summary,
+                key_points=analysis_text.key_points,
+                relevance_score=analysis_text.relevance_score,
+                suggested_queries=analysis_text.suggested_queries
             )
             
         except Exception as e:
             LogManager.log_error("brave_search", f"Error en análisis: {str(e)}")
+            raise
+            
+    async def _save_analysis_to_markdown(self, query: str, analysis: SearchAnalysis):
+        """
+        Guarda el análisis en un archivo Markdown
+        
+        Args:
+            query: Término de búsqueda original
+            analysis: Análisis a guardar
+        """
+        try:
+            # Crear contenido Markdown
+            content = f"""# Análisis de búsqueda: {query}
+
+## Resumen
+{analysis.summary}
+
+## Puntos clave
+{chr(10).join([f"- {point}" for point in analysis.key_points])}
+
+## Puntuación de relevancia
+{analysis.relevance_score}
+
+## Consultas sugeridas
+{chr(10).join([f"- {query}" for query in analysis.suggested_queries])}
+"""
+            
+            # Guardar archivo
+            filename = f"search_analysis_{query.replace(' ', '_')}.md"
+            with open(f"{settings.DATA_DIR}/{filename}", "w", encoding="utf-8") as f:
+                f.write(content)
+                
+            LogManager.log_info(f"Análisis guardado en {filename}")
+            
+        except Exception as e:
+            LogManager.log_error("brave_search", f"Error al guardar análisis: {str(e)}")
             raise 

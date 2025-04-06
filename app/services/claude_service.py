@@ -1,18 +1,21 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import anthropic
 from app.core.config import settings
 from app.core.logging import LogManager
 from app.core.prompts import PromptTemplates
+from app.schemas.search import SearchAnalysis
+from app.core.markdown_logger import MarkdownLogger
 
 class ClaudeService:
     """
     Servicio para interactuar con Claude API
     """
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.client = anthropic.Anthropic(api_key=settings.CLAUDE_API_KEY)
         self.model = settings.CLAUDE_MODEL
-        self.max_tokens = settings.MAX_TOKENS
-        self.temperature = settings.TEMPERATURE
+        self.max_tokens = settings.CLAUDE_MAX_TOKENS
+        self.temperature = settings.CLAUDE_TEMPERATURE
+        self.markdown_logger = MarkdownLogger()
     
     async def generate_markdown(
         self,
@@ -68,7 +71,11 @@ class ClaudeService:
             
             # Guardar archivo si se solicita
             if save and filename:
-                # TODO: Implementar guardado de archivo
+                await self.markdown_logger.log_file_operation(
+                    operation="create",
+                    filename=filename,
+                    content=generated_content
+                )
                 result["saved"] = True
                 result["filename"] = filename
             
@@ -82,7 +89,7 @@ class ClaudeService:
         self,
         text: str,
         analysis_type: str
-    ) -> Dict[str, Any]:
+    ) -> SearchAnalysis:
         """
         Analiza un texto usando Claude
         
@@ -91,7 +98,7 @@ class ClaudeService:
             analysis_type: Tipo de análisis (summary, concepts, sentiment)
             
         Returns:
-            Dict con el análisis y metadata
+            SearchAnalysis con el análisis y metadata
         """
         try:
             # Obtener prompt para análisis
@@ -111,20 +118,49 @@ class ClaudeService:
             )
             
             # Extraer análisis generado
-            analysis = response.content[0].text
+            analysis_text = response.content[0].text
             
             # Registrar operación
             LogManager.log_claude_operation(
                 "analyze_text",
                 prompt,
-                analysis
+                analysis_text
             )
             
-            return {
-                "analysis": analysis,
-                "type": analysis_type,
-                "model": self.model
-            }
+            # Parsear el análisis según el tipo
+            if analysis_type == "search_results":
+                # Extraer secciones del análisis
+                sections = analysis_text.split("\n\n")
+                summary = sections[0] if sections else ""
+                key_points = []
+                relevance_score = 0.0
+                suggested_queries = []
+                
+                for section in sections[1:]:
+                    if section.startswith("Puntos clave:"):
+                        key_points = [point.strip("- ") for point in section.split("\n")[1:]]
+                    elif section.startswith("Puntuación de relevancia:"):
+                        try:
+                            relevance_score = float(section.split(":")[1].strip())
+                        except:
+                            relevance_score = 0.0
+                    elif section.startswith("Consultas sugeridas:"):
+                        suggested_queries = [query.strip("- ") for query in section.split("\n")[1:]]
+                
+                return SearchAnalysis(
+                    summary=summary,
+                    key_points=key_points,
+                    relevance_score=relevance_score,
+                    suggested_queries=suggested_queries
+                )
+            else:
+                # Para otros tipos de análisis, devolver el texto completo
+                return SearchAnalysis(
+                    summary=analysis_text,
+                    key_points=[],
+                    relevance_score=0.0,
+                    suggested_queries=[]
+                )
             
         except Exception as e:
             LogManager.log_error("claude", str(e))
