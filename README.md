@@ -4,12 +4,43 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 
 ## Características Principales
 
+- ✅ Integración con Claude API
+- ✅ Búsqueda web mediante Brave Search API
+- ✅ Sistema de archivos local para gestión de documentos
+- ✅ Soporte para creación y edición de archivos Markdown
+- ✅ API RESTful basada en FastAPI
+- ✅ Documentación automática con Swagger/OpenAPI
+- ✅ Sistema de logging en Markdown
+- ✅ Manejo de errores y validaciones
+- ✅ Autenticación mediante API keys
+
+## Estado Actual del Proyecto
+
+### Implementado ✅
+- Estructura base del proyecto
+- Esquemas Pydantic para todas las entidades
+- Endpoints principales (tools, search, filesystem)
+- Sistema de logging en Markdown
 - Integración con Claude API
-- Búsqueda web mediante Brave Search API
-- Sistema de archivos local para gestión de documentos
-- Soporte para creación y edición de archivos Markdown
-- API RESTful basada en FastAPI
-- Documentación automática con Swagger/OpenAPI
+- Integración con Brave Search API
+- Sistema de archivos local
+- Manejo de errores y validaciones
+- Autenticación básica
+- Documentación API con Swagger
+
+### En Desarrollo 🚧
+- Tests unitarios y de integración
+- Mejoras en el sistema de logging
+- Optimización de rendimiento
+- Documentación detallada de uso
+
+### Pendiente 📋
+- Interfaz web de administración
+- Sistema de caché
+- Monitoreo y métricas
+- Integración con más modelos de Claude
+- Soporte para más formatos de archivo
+- Sistema de plugins
 
 ## Estructura del Proyecto
 
@@ -20,11 +51,13 @@ mcp-claude/
 │   │   ├── endpoints/
 │   │   │   ├── search.py
 │   │   │   ├── filesystem.py
-│   │   │   └── mcp.py
+│   │   │   └── tools.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── security.py
-│   │   └── logging.py
+│   │   ├── logging.py
+│   │   ├── prompts.py
+│   │   └── markdown_logger.py
 │   ├── services/
 │   │   ├── brave_search.py
 │   │   ├── claude_service.py
@@ -87,6 +120,7 @@ http://localhost:8000/docs
 - Los endpoints principales están en `app/api/endpoints/`
 - La lógica de negocio en `app/services/`
 - Esquemas y modelos en `app/schemas/`
+- Configuración y utilidades en `app/core/`
 
 ## Seguridad
 
