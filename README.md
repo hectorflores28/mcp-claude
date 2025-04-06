@@ -20,7 +20,6 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 ### Implementado ✅
 - Estructura base del proyecto
 - Esquemas Pydantic para todas las entidades
-- Endpoints principales (tools, search, filesystem)
 - Sistema de logging en Markdown
 - Integración con Claude API
 - Integración con Brave Search API
@@ -31,14 +30,20 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
 - Plantillas de prompts para Claude
 - Configuración de variables de entorno
 - Sistema de seguridad con API keys
+- Servicios principales:
+  - BraveSearch: Búsqueda web con análisis de resultados
+  - ClaudeService: Generación y análisis de contenido
+  - FileSystemService: Gestión de archivos local
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
 - Mejoras en el sistema de logging
 - Optimización de rendimiento
 - Documentación detallada de uso
-- Implementación de servicios (brave_search, claude_service, filesystem_service)
-- Implementación de endpoints (search, filesystem, tools)
+- Implementación de endpoints:
+  - /api/search: Endpoint para búsquedas web
+  - /api/filesystem: Endpoint para gestión de archivos
+  - /api/tools: Endpoint para listar herramientas MCP
 
 ### Pendiente 📋
 - Interfaz web de administración

@@ -1,110 +1,184 @@
-from anthropic import Anthropic
-from typing import Dict, List, Optional
+from typing import Dict, Any, Optional
+import anthropic
 from app.core.config import settings
+from app.core.logging import LogManager
+from app.core.prompts import PromptTemplates
 
 class ClaudeService:
+    """
+    Servicio para interactuar con Claude API
+    """
     def __init__(self):
-        self.client = Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         self.model = settings.CLAUDE_MODEL
         self.max_tokens = settings.MAX_TOKENS
         self.temperature = settings.TEMPERATURE
     
-    async def generate_response(
+    async def generate_markdown(
         self,
-        prompt: str,
-        system_prompt: Optional[str] = None,
-        max_tokens: Optional[int] = None
-    ) -> str:
+        content: str,
+        format_type: str = "article",
+        save: bool = False,
+        filename: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Genera una respuesta usando Claude.
+        Genera contenido en formato Markdown usando Claude
         
         Args:
-            prompt: El prompt principal
-            system_prompt: Prompt del sistema (opcional)
-            max_tokens: Máximo de tokens a generar (opcional)
+            content: Contenido a formatear
+            format_type: Tipo de formato (article, documentation, etc.)
+            save: Si se debe guardar el archivo
+            filename: Nombre del archivo a guardar
             
         Returns:
-            Respuesta generada por Claude
+            Dict con el contenido generado y metadata
         """
         try:
+            # Obtener prompt para generación
+            prompt = PromptTemplates.get_markdown_generation_prompt(
+                content=content,
+                format_type=format_type
+            )
+            
+            # Generar contenido con Claude
             response = await self.client.messages.create(
                 model=self.model,
-                max_tokens=max_tokens or self.max_tokens,
+                max_tokens=self.max_tokens,
                 temperature=self.temperature,
-                system=system_prompt,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
             )
-            return response.content[0].text
+            
+            # Extraer contenido generado
+            generated_content = response.content[0].text
+            
+            # Registrar operación
+            LogManager.log_claude_operation(
+                "generate_markdown",
+                prompt,
+                generated_content
+            )
+            
+            result = {
+                "content": generated_content,
+                "format_type": format_type,
+                "model": self.model
+            }
+            
+            # Guardar archivo si se solicita
+            if save and filename:
+                # TODO: Implementar guardado de archivo
+                result["saved"] = True
+                result["filename"] = filename
+            
+            return result
+            
         except Exception as e:
-            return f"Error al generar respuesta: {str(e)}"
+            LogManager.log_error("claude", str(e))
+            raise
     
-    async def analyze_search_results(
+    async def analyze_text(
         self,
-        query: str,
-        results: List[Dict]
-    ) -> str:
+        text: str,
+        analysis_type: str
+    ) -> Dict[str, Any]:
         """
-        Analiza los resultados de búsqueda usando Claude.
+        Analiza un texto usando Claude
         
         Args:
-            query: Término de búsqueda original
-            results: Lista de resultados de búsqueda
+            text: Texto a analizar
+            analysis_type: Tipo de análisis (summary, concepts, sentiment)
             
         Returns:
-            Análisis de los resultados
+            Dict con el análisis y metadata
         """
-        system_prompt = """Eres un asistente experto en análisis de información.
-        Tu tarea es analizar los resultados de búsqueda y proporcionar un resumen
-        conciso y útil, destacando los puntos más relevantes."""
-        
-        results_text = "\n\n".join([
-            f"Título: {r['title']}\nDescripción: {r['description']}\nURL: {r['url']}"
-            for r in results
-        ])
-        
-        prompt = f"""Analiza los siguientes resultados de búsqueda para la consulta: "{query}"
-
-Resultados:
-{results_text}
-
-Por favor, proporciona:
-1. Un resumen general de los resultados
-2. Los puntos más importantes encontrados
-3. Cualquier patrón o tendencia notable
-4. Recomendaciones basadas en la información"""
-        
-        return await self.generate_response(prompt, system_prompt)
+        try:
+            # Obtener prompt para análisis
+            prompt = PromptTemplates.get_text_analysis_prompt(
+                text=text,
+                analysis_type=analysis_type
+            )
+            
+            # Generar análisis con Claude
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            # Extraer análisis generado
+            analysis = response.content[0].text
+            
+            # Registrar operación
+            LogManager.log_claude_operation(
+                "analyze_text",
+                prompt,
+                analysis
+            )
+            
+            return {
+                "analysis": analysis,
+                "type": analysis_type,
+                "model": self.model
+            }
+            
+        except Exception as e:
+            LogManager.log_error("claude", str(e))
+            raise
     
-    async def generate_markdown(
+    async def edit_markdown(
         self,
         content: str,
-        format_type: str = "article"
-    ) -> str:
+        instructions: str
+    ) -> Dict[str, Any]:
         """
-        Genera contenido en formato Markdown usando Claude.
+        Edita contenido Markdown usando Claude
         
         Args:
-            content: Contenido a formatear
-            format_type: Tipo de formato deseado (article, documentation, etc.)
+            content: Contenido original
+            instructions: Instrucciones de edición
             
         Returns:
-            Contenido formateado en Markdown
+            Dict con el contenido editado y metadata
         """
-        system_prompt = f"""Eres un experto en formato Markdown.
-        Tu tarea es convertir el contenido proporcionado en un documento Markdown
-        bien estructurado del tipo: {format_type}."""
-        
-        prompt = f"""Convierte el siguiente contenido en un documento Markdown
-        del tipo {format_type}:
-
-{content}
-
-Asegúrate de:
-1. Usar los encabezados apropiados
-2. Formatear listas y tablas correctamente
-3. Incluir enlaces cuando sea relevante
-4. Mantener un estilo consistente"""
-        
-        return await self.generate_response(prompt, system_prompt) 
+        try:
+            # Obtener prompt para edición
+            prompt = PromptTemplates.get_file_edit_prompt(
+                content=content,
+                instructions=instructions
+            )
+            
+            # Generar edición con Claude
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                temperature=self.temperature,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            # Extraer contenido editado
+            edited_content = response.content[0].text
+            
+            # Registrar operación
+            LogManager.log_claude_operation(
+                "edit_markdown",
+                prompt,
+                edited_content
+            )
+            
+            return {
+                "content": edited_content,
+                "original_content": content,
+                "instructions": instructions,
+                "model": self.model
+            }
+            
+        except Exception as e:
+            LogManager.log_error("claude", str(e))
+            raise 
