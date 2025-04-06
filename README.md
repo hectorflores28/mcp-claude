@@ -17,6 +17,9 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
 - ✅ Soporte para Docker y Docker Compose
 - ✅ Health checks para monitoreo
 - ✅ Volúmenes persistentes para datos y logs
+- ✅ Monitoreo de recursos del sistema
+- ✅ Endpoints para gestión de prompts
+- ✅ Sistema de logging avanzado
 
 ## Estado Actual del Proyecto
 
@@ -42,7 +45,10 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
   - `/api/filesystem`: Operaciones CRUD en archivos
   - `/api/tools`: Listado de herramientas MCP disponibles
   - `/api/tools/execute`: Ejecución de herramientas MCP
-  - `/mcp/execute`: Endpoint principal para protocolo JSON-RPC 2.0
+  - `/api/claude`: Operaciones de Claude
+  - `/api/prompts`: Gestión de plantillas de prompts
+  - `/api/logs`: Monitoreo de operaciones
+  - `/api/health`: Monitoreo de salud del sistema
 - Configuración Docker:
   - Dockerfile para producción
   - Docker Compose para desarrollo y producción
@@ -53,6 +59,10 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
   - Prevención de directory traversal
   - Sanitización de entradas
   - Logging de operaciones críticas
+- Monitoreo:
+  - Verificación de salud de servicios
+  - Monitoreo de recursos (CPU, memoria, disco)
+  - Estadísticas de uso
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
@@ -64,7 +74,7 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
 ### Pendiente 📋
 - Interfaz web de administración
 - Sistema de caché
-- Monitoreo y métricas
+- Monitoreo y métricas avanzadas
 - Integración con más modelos de Claude
 - Soporte para más formatos de archivo
 - Sistema de plugins
@@ -79,7 +89,11 @@ mcp-claude/
 │   │   │   ├── search.py
 │   │   │   ├── filesystem.py
 │   │   │   ├── tools.py
-│   │   │   └── mcp.py
+│   │   │   ├── mcp.py
+│   │   │   ├── claude.py
+│   │   │   ├── prompts.py
+│   │   │   ├── logs.py
+│   │   │   └── health.py
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── security.py
@@ -93,6 +107,7 @@ mcp-claude/
 │   └── schemas/
 │       ├── search.py
 │       ├── filesystem.py
+│       ├── claude.py
 │       └── mcp.py
 ├── tests/
 ├── logs/
@@ -114,6 +129,7 @@ mcp-claude/
 - Python-magic
 - Aiofiles
 - Pydantic
+- Psutil
 - Docker y Docker Compose (opcional)
 
 ## Configuración
@@ -183,6 +199,25 @@ http://localhost:8001/docs  # Desarrollo
 ### Herramientas MCP
 - `GET /api/tools`: Lista todas las herramientas MCP disponibles
 - `POST /api/tools/execute`: Ejecuta una herramienta MCP específica
+
+### Claude
+- `POST /api/claude/analyze`: Analiza texto usando Claude
+- `POST /api/claude/generate`: Genera contenido en formato Markdown
+
+### Prompts
+- `GET /api/prompts`: Lista todas las plantillas de prompts disponibles
+- `GET /api/prompts/{name}`: Obtiene una plantilla específica
+- `POST /api/prompts/{name}/format`: Formatea una plantilla con variables
+
+### Logs
+- `GET /api/logs/recent`: Obtiene los logs más recientes
+- `GET /api/logs/search`: Busca logs por criterios específicos
+- `GET /api/logs/stats`: Obtiene estadísticas de los logs
+
+### Health
+- `GET /api/health`: Verifica el estado general del servicio
+- `GET /api/health/services`: Verifica el estado de los servicios individuales
+- `GET /api/health/resources`: Verifica el uso de recursos del sistema
 
 ### Protocolo JSON-RPC 2.0
 - `POST /mcp/execute`: Endpoint principal para ejecutar herramientas MCP según el protocolo JSON-RPC 2.0
