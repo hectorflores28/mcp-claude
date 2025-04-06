@@ -34,16 +34,18 @@ Implementación de un servidor MCP (Model Context Protocol) personalizado utiliz
   - BraveSearch: Búsqueda web con análisis de resultados
   - ClaudeService: Generación y análisis de contenido
   - FileSystemService: Gestión de archivos local
+- Endpoints principales:
+  - `/api/search`: Búsqueda web con Brave Search
+  - `/api/filesystem`: Operaciones CRUD en archivos
+  - `/api/tools`: Listado de herramientas MCP disponibles
 
 ### En Desarrollo 🚧
 - Tests unitarios y de integración
 - Mejoras en el sistema de logging
 - Optimización de rendimiento
 - Documentación detallada de uso
-- Implementación de endpoints:
-  - /api/search: Endpoint para búsquedas web
-  - /api/filesystem: Endpoint para gestión de archivos
-  - /api/tools: Endpoint para listar herramientas MCP
+- Endpoint `/api/tools/execute` para ejecución de herramientas MCP
+- Integración completa con el protocolo JSON-RPC 2.0
 
 ### Pendiente 📋
 - Interfaz web de administración
@@ -125,6 +127,23 @@ uvicorn app.main:app --reload
 ```
 http://localhost:8000/docs
 ```
+
+## Endpoints Disponibles
+
+### Búsqueda Web
+- `POST /api/search`: Realiza búsquedas web utilizando Brave Search API
+  - Parámetros: query, num_results, country, language, analyze
+
+### Sistema de Archivos
+- `POST /api/filesystem`: Crea un nuevo archivo
+- `GET /api/filesystem/{filename}`: Lee un archivo existente
+- `GET /api/filesystem`: Lista todos los archivos disponibles
+- `PUT /api/filesystem/{filename}`: Actualiza un archivo existente
+- `DELETE /api/filesystem/{filename}`: Elimina un archivo existente
+
+### Herramientas MCP
+- `GET /api/tools`: Lista todas las herramientas MCP disponibles
+- `POST /api/tools/execute`: Ejecuta una herramienta MCP específica (en desarrollo)
 
 ## Desarrollo
 

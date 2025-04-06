@@ -1,129 +1,148 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File
-from typing import List, Dict
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List
+from app.core.security import verify_api_key
 from app.services.filesystem_service import FileSystemService
-from pydantic import BaseModel
+from app.schemas.filesystem import (
+    FileOperation,
+    FileResponse,
+    FileListResponse
+)
+from app.core.logging import LogManager
 
-router = APIRouter()
-filesystem = FileSystemService()
+router = APIRouter(prefix="/filesystem", tags=["filesystem"])
 
-class FileResponse(BaseModel):
-    filename: str
-    size: int
-    created_at: str
-    mime_type: str
+@router.post("/", response_model=FileResponse)
+async def create_file(
+    operation: FileOperation,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Crea un nuevo archivo en el sistema.
+    
+    Args:
+        operation: Detalles de la operación de archivo
+        api_key: API key para autenticación
+        
+    Returns:
+        FileResponse: Resultado de la operación
+    """
+    try:
+        service = FileSystemService()
+        response = await service.create_file(
+            filename=operation.filename,
+            content=operation.content
+        )
+        return response
+    except Exception as e:
+        LogManager.log_error("filesystem", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al crear archivo: {str(e)}"
+        )
 
-class FileContent(BaseModel):
-    filename: str
-    content: str
-    size: int
-    mime_type: str
+@router.get("/{filename}", response_model=FileResponse)
+async def read_file(
+    filename: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Lee un archivo existente.
+    
+    Args:
+        filename: Nombre del archivo a leer
+        api_key: API key para autenticación
+        
+    Returns:
+        FileResponse: Contenido del archivo
+    """
+    try:
+        service = FileSystemService()
+        response = await service.read_file(filename)
+        return response
+    except Exception as e:
+        LogManager.log_error("filesystem", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al leer archivo: {str(e)}"
+        )
 
-class FileOperation(BaseModel):
-    filename: str
-    status: str
-    operation: str
-    timestamp: str
-
-@router.get("/files", response_model=List[FileResponse])
-async def list_files():
+@router.get("/", response_model=FileListResponse)
+async def list_files(
+    api_key: str = Depends(verify_api_key)
+):
     """
     Lista todos los archivos disponibles.
     
+    Args:
+        api_key: API key para autenticación
+        
     Returns:
-        Lista de archivos con sus metadatos
+        FileListResponse: Lista de archivos
     """
     try:
-        return await filesystem.list_files()
+        service = FileSystemService()
+        response = await service.list_files()
+        return response
     except Exception as e:
+        LogManager.log_error("filesystem", str(e))
         raise HTTPException(
             status_code=500,
             detail=f"Error al listar archivos: {str(e)}"
         )
 
-@router.get("/files/{filename}", response_model=FileContent)
-async def read_file(filename: str):
-    """
-    Lee el contenido de un archivo específico.
-    
-    Args:
-        filename: Nombre del archivo
-        
-    Returns:
-        Contenido del archivo
-    """
-    try:
-        return await filesystem.read_file(filename)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Archivo no encontrado: {filename}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al leer el archivo: {str(e)}"
-        )
-
-@router.post("/files", response_model=FileOperation)
-async def create_file(
+@router.put("/{filename}", response_model=FileResponse)
+async def update_file(
     filename: str,
-    content: str
+    operation: FileOperation,
+    api_key: str = Depends(verify_api_key)
 ):
     """
-    Crea un nuevo archivo.
+    Actualiza un archivo existente.
     
     Args:
-        filename: Nombre del archivo
-        content: Contenido del archivo
+        filename: Nombre del archivo a actualizar
+        operation: Detalles de la operación
+        api_key: API key para autenticación
         
     Returns:
-        Información de la operación
+        FileResponse: Resultado de la operación
     """
     try:
-        result = await filesystem.save_file(content, filename)
-        return FileOperation(
-            filename=result["filename"],
-            status="created",
-            operation="save",
-            timestamp=result["created_at"]
+        service = FileSystemService()
+        response = await service.update_file(
+            filename=filename,
+            content=operation.content
         )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+        return response
     except Exception as e:
+        LogManager.log_error("filesystem", str(e))
         raise HTTPException(
             status_code=500,
-            detail=f"Error al crear el archivo: {str(e)}"
+            detail=f"Error al actualizar archivo: {str(e)}"
         )
 
-@router.delete("/files/{filename}", response_model=FileOperation)
-async def delete_file(filename: str):
+@router.delete("/{filename}", response_model=FileResponse)
+async def delete_file(
+    filename: str,
+    api_key: str = Depends(verify_api_key)
+):
     """
-    Elimina un archivo.
+    Elimina un archivo existente.
     
     Args:
-        filename: Nombre del archivo
+        filename: Nombre del archivo a eliminar
+        api_key: API key para autenticación
         
     Returns:
-        Información de la operación
+        FileResponse: Resultado de la operación
     """
     try:
-        result = await filesystem.delete_file(filename)
-        return FileOperation(
-            filename=result["filename"],
-            status=result["status"],
-            operation="delete",
-            timestamp=result["deleted_at"]
-        )
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Archivo no encontrado: {filename}"
-        )
+        service = FileSystemService()
+        response = await service.delete_file(filename)
+        return response
     except Exception as e:
+        LogManager.log_error("filesystem", str(e))
         raise HTTPException(
             status_code=500,
-            detail=f"Error al eliminar el archivo: {str(e)}"
+            detail=f"Error al eliminar archivo: {str(e)}"
         ) 

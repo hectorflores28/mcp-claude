@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List, Dict, Any
 from app.schemas.mcp import MCPToolsResponse, ToolDefinition, MCPRequest, MCPResponse
 from app.schemas.search import SearchToolSchema
@@ -7,90 +7,96 @@ from app.core.logging import LogManager
 from app.core.search import BraveSearch
 from app.core.filesystem import FileSystem
 from app.core.claude import ClaudeClient
+from app.core.security import verify_api_key
 
-router = APIRouter()
+router = APIRouter(prefix="/tools", tags=["tools"])
+
+# Definición de herramientas disponibles
+AVAILABLE_TOOLS = [
+    ToolDefinition(
+        name="buscar_en_brave",
+        description="Realiza una búsqueda web utilizando Brave Search API",
+        parameters={
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Término de búsqueda"
+                },
+                "num_results": {
+                    "type": "integer",
+                    "description": "Número de resultados a retornar",
+                    "default": 5
+                },
+                "country": {
+                    "type": "string",
+                    "description": "Código de país para resultados",
+                    "default": "es"
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Idioma de los resultados",
+                    "default": "es"
+                },
+                "analyze": {
+                    "type": "boolean",
+                    "description": "Si se debe analizar los resultados con Claude",
+                    "default": False
+                }
+            },
+            "required": ["query"]
+        }
+    ),
+    ToolDefinition(
+        name="gestionar_archivo",
+        description="Realiza operaciones CRUD en archivos Markdown",
+        parameters={
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "description": "Tipo de operación (create, read, update, delete)",
+                    "enum": ["create", "read", "update", "delete"]
+                },
+                "filename": {
+                    "type": "string",
+                    "description": "Nombre del archivo"
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Contenido del archivo (para create/update)"
+                }
+            },
+            "required": ["operation", "filename"]
+        }
+    )
+]
 
 @router.get("/", response_model=MCPToolsResponse)
-async def list_tools():
+async def list_tools(
+    api_key: str = Depends(verify_api_key)
+):
     """
     Lista todas las herramientas MCP disponibles.
     
+    Args:
+        api_key: API key para autenticación
+        
     Returns:
-        Lista de herramientas con sus esquemas
+        MCPToolsResponse: Lista de herramientas disponibles
     """
     try:
-        # Registrar la solicitud
-        LogManager.log_api_request("GET", "/api/v1/tools")
+        # Registrar operación
+        LogManager.log_operation(
+            "tools",
+            "list_tools",
+            {"count": len(AVAILABLE_TOOLS)}
+        )
         
-        # Definir las herramientas disponibles
-        tools = [
-            ToolDefinition(
-                name="buscar_en_brave",
-                description="Realiza búsquedas web usando Brave Search API",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Término de búsqueda"},
-                        "num_results": {"type": "number", "description": "Número de resultados a devolver"},
-                        "analyze": {"type": "boolean", "description": "Si se debe analizar los resultados con Claude"}
-                    },
-                    "required": ["query"]
-                }
-            ),
-            ToolDefinition(
-                name="filesystem",
-                description="Operaciones CRUD en el sistema de archivos",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string", 
-                            "description": "Operación a realizar (create, read, list, delete)",
-                            "enum": ["create", "read", "list", "delete"]
-                        },
-                        "filename": {"type": "string", "description": "Nombre del archivo"},
-                        "content": {"type": "string", "description": "Contenido del archivo (para create)"}
-                    },
-                    "required": ["operation"]
-                }
-            ),
-            ToolDefinition(
-                name="generar_markdown",
-                description="Genera contenido en formato Markdown usando Claude",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "content": {"type": "string", "description": "Contenido a formatear"},
-                        "format_type": {"type": "string", "description": "Tipo de formato (article, documentation, etc.)"},
-                        "save": {"type": "boolean", "description": "Si se debe guardar el archivo"},
-                        "filename": {"type": "string", "description": "Nombre del archivo a guardar"}
-                    },
-                    "required": ["content"]
-                }
-            ),
-            ToolDefinition(
-                name="analizar_texto",
-                description="Analiza un texto usando Claude",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "text": {"type": "string", "description": "Texto a analizar"},
-                        "analysis_type": {
-                            "type": "string", 
-                            "description": "Tipo de análisis (summary, concepts, sentiment)",
-                            "enum": ["summary", "concepts", "sentiment"]
-                        }
-                    },
-                    "required": ["text", "analysis_type"]
-                }
-            )
-        ]
+        return MCPToolsResponse(tools=AVAILABLE_TOOLS)
         
-        return MCPToolsResponse(tools=tools)
-    
     except Exception as e:
-        # Registrar el error
-        LogManager.log_error("list_tools", str(e))
+        LogManager.log_error("tools", str(e))
         raise HTTPException(
             status_code=500,
             detail=f"Error al listar herramientas: {str(e)}"
