@@ -112,7 +112,7 @@ class TokenBlacklist:
             return await self._cache.get(self._get_key(token)) is not None
         except Exception as e:
             logger.error(f"Error al verificar token en blacklist: {str(e)}")
-            return True  # Por seguridad, asumimos que está blacklisteado
+            return False
 
     async def remove_token(self, token: str) -> bool:
         """
@@ -151,41 +151,38 @@ class TokenBlacklist:
             logger.error(f"Error al limpiar blacklist: {str(e)}")
             return False
 
-    async def get_blacklisted_tokens(self, limit: int = 100) -> List[Dict[str, Any]]:
+    async def get_blacklisted_tokens(self) -> List[Dict[str, Any]]:
         """
-        Obtiene los tokens blacklisteados con sus metadatos
+        Obtiene todos los tokens blacklisteados con sus metadatos
         
-        Args:
-            limit: Límite de tokens a obtener
-            
         Returns:
-            List[Dict[str, Any]]: Lista de tokens con sus metadatos
+            List[Dict[str, Any]]: Lista de tokens blacklisteados con metadatos
         """
         try:
-            # Obtener claves
-            keys = await self._cache.scan_iter(match=f"{self._prefix}*", count=limit)
+            # Obtener todas las claves de blacklist
+            keys = await self._cache.scan_iter(match=f"{self._prefix}*")
             
-            # Obtener datos en lotes
+            # Obtener valores en lotes
             tokens = []
             for i in range(0, len(keys), self._batch_size):
                 batch = keys[i:i + self._batch_size]
-                batch_data = await self._cache.get_many(batch)
+                values = await self._cache.mget(batch)
                 
-                for key, data in batch_data.items():
-                    if data:
-                        token = key.replace(self._prefix, "")
+                # Procesar resultados
+                for key, value in zip(batch, values):
+                    if value is not None:
+                        token = key[len(self._prefix):]
                         tokens.append({
                             "token": token,
-                            "added_at": data.get("added_at"),
-                            "expires_at": data.get("expires_at")
+                            "metadata": value
                         })
             
-            return tokens[:limit]
+            return tokens
         except Exception as e:
             logger.error(f"Error al obtener tokens blacklisteados: {str(e)}")
             return []
 
-    async def add_tokens(self, tokens: List[Dict[str, Any]]) -> Dict[str, bool]:
+    async def add_tokens(self, tokens: List[Dict[str, Any]]) -> bool:
         """
         Agrega múltiples tokens a la blacklist
         
@@ -193,13 +190,13 @@ class TokenBlacklist:
             tokens: Lista de diccionarios con token y expires_in
             
         Returns:
-            Dict[str, bool]: Resultado por cada token
+            bool: True si se agregaron correctamente
         """
         try:
             # Ejecutar limpieza si es necesario
             await self._cleanup_expired()
             
-            # Preparar datos para inserción en lote
+            # Preparar datos para mset
             mapping = {}
             for token_data in tokens:
                 token = token_data["token"]
@@ -210,21 +207,13 @@ class TokenBlacklist:
                     "token_hash": hash(token)
                 }
             
-            # Insertar en lote
-            success = await self._cache.set_many(mapping)
-            
-            # Preparar resultado
-            results = {}
-            for token_data in tokens:
-                token = token_data["token"]
-                results[token] = success
-            
-            return results
+            # Agregar tokens en lote
+            return await self._cache.mset(mapping, expire=3600)
         except Exception as e:
-            logger.error(f"Error al agregar múltiples tokens a blacklist: {str(e)}")
-            return {token["token"]: False for token in tokens}
+            logger.error(f"Error al agregar tokens a blacklist: {str(e)}")
+            return False
 
-    async def remove_tokens(self, tokens: List[str]) -> Dict[str, bool]:
+    async def remove_tokens(self, tokens: List[str]) -> bool:
         """
         Elimina múltiples tokens de la blacklist
         
@@ -232,24 +221,22 @@ class TokenBlacklist:
             tokens: Lista de tokens a eliminar
             
         Returns:
-            Dict[str, bool]: Resultado por cada token
+            bool: True si se eliminaron correctamente
         """
         try:
             # Preparar claves
             keys = [self._get_key(token) for token in tokens]
             
             # Eliminar en lote
-            deleted = await self._cache.delete_many(keys)
-            
-            # Preparar resultado
-            results = {}
-            for token in tokens:
-                results[token] = deleted > 0
-            
-            return results
+            return await self._cache.delete_many(keys)
         except Exception as e:
-            logger.error(f"Error al eliminar múltiples tokens de blacklist: {str(e)}")
-            return {token: False for token in tokens}
+            logger.error(f"Error al eliminar tokens de blacklist: {str(e)}")
+            return False
 
-# Instancia global de la blacklist
-blacklist = TokenBlacklist() 
+@lru_cache()
+def get_blacklist() -> TokenBlacklist:
+    """Obtiene una instancia del sistema de blacklist"""
+    return TokenBlacklist()
+
+# Instancia global
+blacklist = get_blacklist() 
