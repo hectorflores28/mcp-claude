@@ -53,25 +53,17 @@ class CacheBackend(ABC):
     async def scan_iter(self, match: str = "*", count: int = 100) -> List[str]:
         """Itera sobre las claves de la caché"""
         pass
+    
+    @abstractmethod
+    async def delete_many(self, keys: List[str]) -> int:
+        """Elimina múltiples valores de la caché"""
+        pass
 
 class RedisCache(CacheBackend):
     """Backend de caché con Redis"""
     
     def __init__(self):
         """Inicializa el backend de caché con Redis"""
-        self.redis = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            password=settings.REDIS_PASSWORD,
-            db=settings.REDIS_DB,
-            ssl=settings.REDIS_SSL,
-            decode_responses=False,  # Mantener bytes para pickle
-            socket_timeout=5,
-            socket_connect_timeout=5,
-            retry_on_timeout=True,
-            health_check_interval=30
-        )
-        
         # Configurar pool de conexiones
         self.pool = redis.ConnectionPool(
             host=settings.REDIS_HOST,
@@ -79,10 +71,10 @@ class RedisCache(CacheBackend):
             password=settings.REDIS_PASSWORD,
             db=settings.REDIS_DB,
             ssl=settings.REDIS_SSL,
-            max_connections=10,
+            max_connections=settings.REDIS_MAX_CONNECTIONS or 10,
             decode_responses=False,
-            socket_timeout=5,
-            socket_connect_timeout=5,
+            socket_timeout=settings.REDIS_TIMEOUT or 5,
+            socket_connect_timeout=settings.REDIS_TIMEOUT or 5,
             retry_on_timeout=True,
             health_check_interval=30
         )
@@ -105,14 +97,22 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def get(self, key: str) -> Optional[Any]:
-        """Obtiene un valor de Redis con reintentos"""
+        """
+        Obtiene un valor de la caché
+        
+        Args:
+            key: Clave a obtener
+            
+        Returns:
+            Valor almacenado o None si no existe
+        """
         try:
-            data = await asyncio.to_thread(self.redis.get, key)
-            if data is None:
+            value = await asyncio.to_thread(self.redis.get, key)
+            if value is None:
                 return None
-            return pickle.loads(data)
+            return pickle.loads(value)
         except Exception as e:
-            logger.error(f"Error al obtener de caché: {str(e)}")
+            logger.error(f"Error al obtener valor de caché: {str(e)}")
             return None
     
     @backoff.on_exception(
@@ -122,14 +122,24 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def set(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
-        """Almacena un valor en Redis con reintentos"""
+        """
+        Almacena un valor en la caché
+        
+        Args:
+            key: Clave a almacenar
+            value: Valor a almacenar
+            expire: Tiempo de expiración en segundos
+            
+        Returns:
+            True si se almacenó correctamente
+        """
         try:
-            data = pickle.dumps(value)
+            serialized = pickle.dumps(value)
             if expire:
-                return await asyncio.to_thread(self.redis.setex, key, expire, data)
-            return await asyncio.to_thread(self.redis.set, key, data)
+                return await asyncio.to_thread(self.redis.setex, key, expire, serialized)
+            return await asyncio.to_thread(self.redis.set, key, serialized)
         except Exception as e:
-            logger.error(f"Error al almacenar en caché: {str(e)}")
+            logger.error(f"Error al almacenar valor en caché: {str(e)}")
             return False
     
     @backoff.on_exception(
@@ -139,11 +149,19 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def delete(self, key: str) -> bool:
-        """Elimina un valor de Redis con reintentos"""
+        """
+        Elimina un valor de la caché
+        
+        Args:
+            key: Clave a eliminar
+            
+        Returns:
+            True si se eliminó correctamente
+        """
         try:
             return await asyncio.to_thread(self.redis.delete, key) > 0
         except Exception as e:
-            logger.error(f"Error al eliminar de caché: {str(e)}")
+            logger.error(f"Error al eliminar valor de caché: {str(e)}")
             return False
     
     @backoff.on_exception(
@@ -153,7 +171,12 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def clear(self) -> bool:
-        """Limpia toda la caché de Redis con reintentos"""
+        """
+        Limpia toda la caché
+        
+        Returns:
+            True si se limpió correctamente
+        """
         try:
             return await asyncio.to_thread(self.redis.flushdb)
         except Exception as e:
@@ -167,10 +190,32 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def mget(self, keys: List[str]) -> List[Optional[Any]]:
-        """Obtiene múltiples valores de Redis con reintentos"""
+        """
+        Obtiene múltiples valores de la caché
+        
+        Args:
+            keys: Lista de claves a obtener
+            
+        Returns:
+            Lista de valores almacenados
+        """
         try:
-            data = await asyncio.to_thread(self.redis.mget, keys)
-            return [pickle.loads(item) if item else None for item in data]
+            if not keys:
+                return []
+            
+            values = await asyncio.to_thread(self.redis.mget, keys)
+            result = []
+            
+            for value in values:
+                if value is None:
+                    result.append(None)
+                else:
+                    try:
+                        result.append(pickle.loads(value))
+                    except Exception:
+                        result.append(None)
+            
+            return result
         except Exception as e:
             logger.error(f"Error al obtener múltiples valores de caché: {str(e)}")
             return [None] * len(keys)
@@ -182,16 +227,33 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def mset(self, mapping: Dict[str, Any], expire: Optional[int] = None) -> bool:
-        """Almacena múltiples valores en Redis con reintentos"""
+        """
+        Almacena múltiples valores en la caché
+        
+        Args:
+            mapping: Diccionario de claves y valores
+            expire: Tiempo de expiración en segundos
+            
+        Returns:
+            True si se almacenaron correctamente
+        """
         try:
+            if not mapping:
+                return True
+            
+            # Serializar valores
+            serialized = {k: pickle.dumps(v) for k, v in mapping.items()}
+            
+            # Usar pipeline para operaciones en lote
             pipe = self.redis.pipeline()
-            for key, value in mapping.items():
-                data = pickle.dumps(value)
-                if expire:
-                    pipe.setex(key, expire, data)
-                else:
-                    pipe.set(key, data)
-            await asyncio.to_thread(lambda: pipe.execute())
+            
+            if expire:
+                for key, value in serialized.items():
+                    pipe.setex(key, expire, value)
+            else:
+                pipe.mset(serialized)
+            
+            await asyncio.to_thread(pipe.execute)
             return True
         except Exception as e:
             logger.error(f"Error al almacenar múltiples valores en caché: {str(e)}")
@@ -204,24 +266,71 @@ class RedisCache(CacheBackend):
         max_time=5
     )
     async def scan_iter(self, match: str = "*", count: int = 100) -> List[str]:
-        """Itera sobre las claves de Redis con reintentos"""
+        """
+        Itera sobre las claves de la caché
+        
+        Args:
+            match: Patrón de búsqueda
+            count: Número de claves a obtener por iteración
+            
+        Returns:
+            Lista de claves encontradas
+        """
         try:
-            keys = []
             cursor = 0
+            keys = []
+            
             while True:
                 cursor, batch = await asyncio.to_thread(
-                    self.redis.scan, 
-                    cursor=cursor, 
-                    match=match, 
-                    count=count
+                    self.redis.scan, cursor, match=match, count=count
                 )
                 keys.extend(batch)
+                
                 if cursor == 0:
                     break
+            
             return keys
         except Exception as e:
-            logger.error(f"Error al iterar sobre claves de caché: {str(e)}")
+            logger.error(f"Error al escanear claves de caché: {str(e)}")
             return []
+    
+    @backoff.on_exception(
+        backoff.expo,
+        (RedisError, ConnectionError, TimeoutError),
+        max_tries=3,
+        max_time=5
+    )
+    async def delete_many(self, keys: List[str]) -> int:
+        """
+        Elimina múltiples valores de la caché
+        
+        Args:
+            keys: Lista de claves a eliminar
+            
+        Returns:
+            Número de claves eliminadas
+        """
+        try:
+            if not keys:
+                return 0
+            
+            return await asyncio.to_thread(self.redis.delete, *keys)
+        except Exception as e:
+            logger.error(f"Error al eliminar múltiples valores de caché: {str(e)}")
+            return 0
+
+@lru_cache()
+def get_cache() -> CacheBackend:
+    """
+    Obtiene una instancia del backend de caché
+    
+    Returns:
+        Instancia del backend de caché
+    """
+    return RedisCache()
+
+# Instancia global
+cache = get_cache()
 
 class CacheManager:
     """Gestor de caché para MCP-Claude"""
@@ -391,9 +500,4 @@ class ClaudeCache:
     
     def clear_all_cache(self):
         """Limpia toda la caché de Claude"""
-        self._cache.clear()
-
-@lru_cache()
-def get_cache() -> CacheBackend:
-    """Obtiene una instancia del backend de caché"""
-    return RedisCache() 
+        self._cache.clear() 
