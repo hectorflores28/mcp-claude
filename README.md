@@ -1,12 +1,12 @@
 # 🚀 MCP-Claude
 
-> Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
-
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100.0-green.svg)](https://fastapi.tiangolo.com/)
 [![Redis](https://img.shields.io/badge/Redis-6.0+-red.svg)](https://redis.io/)
 [![Tests](https://img.shields.io/badge/tests-60%25-yellow.svg)](https://github.com/tu-usuario/mcp-claude/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
 
 ## 📋 Estado del Proyecto
 
