@@ -166,141 +166,85 @@ class FileCache(CacheBackend):
 
 class RedisCache:
     """
-    Clase para manejar el caché con Redis.
+    Implementación de caché distribuido usando Redis
     """
-    
     def __init__(self):
+        self.redis_client = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=settings.REDIS_DB,
+            password=settings.REDIS_PASSWORD,
+            ssl=settings.REDIS_SSL,
+            socket_timeout=settings.REDIS_TIMEOUT,
+            max_connections=settings.REDIS_MAX_CONNECTIONS,
+            decode_responses=True
+        )
+        self.prefix = settings.CACHE_PREFIX
+        LogManager.log_info("Sistema de caché Redis inicializado")
+
+    def _get_key(self, key: str) -> str:
+        """Genera la clave con el prefijo configurado"""
+        return f"{self.prefix}{key}"
+
+    async def get(self, key: str) -> Optional[Any]:
         """
-        Inicializa la conexión con Redis.
+        Obtiene un valor del caché
         """
         try:
-            self.redis_client = redis.Redis(
-                host=settings.REDIS_HOST,
-                port=settings.REDIS_PORT,
-                db=settings.REDIS_DB,
-                password=settings.REDIS_PASSWORD,
-                decode_responses=True
-            )
-            self.redis_client.ping()
-            LogManager.log_info("cache", "Conexión con Redis establecida")
-        except Exception as e:
-            LogManager.log_error("cache", f"Error al conectar con Redis: {str(e)}")
-            self.redis_client = None
-    
-    def is_available(self) -> bool:
-        """
-        Verifica si Redis está disponible.
-        
-        Returns:
-            True si Redis está disponible, False en caso contrario
-        """
-        if self.redis_client is None:
-            return False
-        
-        try:
-            self.redis_client.ping()
-            return True
-        except Exception:
-            return False
-    
-    def get(self, key: str) -> Optional[Any]:
-        """
-        Obtiene un valor del caché.
-        
-        Args:
-            key: Clave del valor a obtener
-            
-        Returns:
-            Valor almacenado en el caché o None si no existe
-        """
-        if not self.is_available():
-            return None
-        
-        try:
-            value = self.redis_client.get(key)
-            if value is None:
-                return None
-            
-            # Intentar deserializar como JSON
-            try:
+            value = self.redis_client.get(self._get_key(key))
+            if value:
                 return json.loads(value)
-            except json.JSONDecodeError:
-                # Si no es JSON, intentar deserializar como pickle
-                return pickle.loads(value)
+            return None
         except Exception as e:
             LogManager.log_error("cache", f"Error al obtener valor del caché: {str(e)}")
             return None
-    
-    def set(self, key: str, value: Any, expire: Optional[Union[int, timedelta]] = None) -> bool:
+
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """
-        Almacena un valor en el caché.
-        
-        Args:
-            key: Clave para almacenar el valor
-            value: Valor a almacenar
-            expire: Tiempo de expiración en segundos o timedelta
-            
-        Returns:
-            True si se almacenó correctamente, False en caso contrario
+        Almacena un valor en el caché
         """
-        if not self.is_available():
-            return False
-        
         try:
-            # Intentar serializar como JSON
-            try:
-                serialized = json.dumps(value)
-            except (TypeError, OverflowError):
-                # Si no se puede serializar como JSON, usar pickle
-                serialized = pickle.dumps(value)
-            
-            if expire is not None:
-                if isinstance(expire, timedelta):
-                    expire = int(expire.total_seconds())
-                self.redis_client.setex(key, expire, serialized)
-            else:
-                self.redis_client.set(key, serialized)
-            
-            return True
+            ttl = ttl or settings.CACHE_TTL
+            return self.redis_client.setex(
+                self._get_key(key),
+                ttl,
+                json.dumps(value)
+            )
         except Exception as e:
-            LogManager.log_error("cache", f"Error al almacenar valor en el caché: {str(e)}")
+            LogManager.log_error("cache", f"Error al almacenar valor en caché: {str(e)}")
             return False
-    
-    def delete(self, key: str) -> bool:
+
+    async def delete(self, key: str) -> bool:
         """
-        Elimina un valor del caché.
-        
-        Args:
-            key: Clave del valor a eliminar
-            
-        Returns:
-            True si se eliminó correctamente, False en caso contrario
+        Elimina un valor del caché
         """
-        if not self.is_available():
-            return False
-        
         try:
-            self.redis_client.delete(key)
-            return True
+            return bool(self.redis_client.delete(self._get_key(key)))
         except Exception as e:
             LogManager.log_error("cache", f"Error al eliminar valor del caché: {str(e)}")
             return False
-    
-    def clear(self) -> bool:
+
+    async def clear(self) -> bool:
         """
-        Limpia todo el caché.
-        
-        Returns:
-            True si se limpió correctamente, False en caso contrario
+        Limpia todo el caché
         """
-        if not self.is_available():
-            return False
-        
         try:
-            self.redis_client.flushdb()
+            keys = self.redis_client.keys(f"{self.prefix}*")
+            if keys:
+                return bool(self.redis_client.delete(*keys))
             return True
         except Exception as e:
-            LogManager.log_error("cache", f"Error al limpiar el caché: {str(e)}")
+            LogManager.log_error("cache", f"Error al limpiar caché: {str(e)}")
+            return False
+
+    async def exists(self, key: str) -> bool:
+        """
+        Verifica si una clave existe en el caché
+        """
+        try:
+            return bool(self.redis_client.exists(self._get_key(key)))
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al verificar existencia en caché: {str(e)}")
             return False
 
 # Instancia global del caché
