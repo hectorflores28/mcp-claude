@@ -14,6 +14,14 @@ Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
 - Configuración para Claude Desktop
 - Tests unitarios y de integración
 
+## Estado del Proyecto
+
+- **Versión**: 1.1.0 (Beta)
+- **Estado**: En desarrollo activo
+- **Última actualización**: 7 de abril de 2025
+- **Características implementadas**: 80%
+- **Tests implementados**: 60%
+
 ## Requisitos
 
 - Python 3.8+

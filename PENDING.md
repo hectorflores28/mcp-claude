@@ -24,7 +24,7 @@
 ## Prioridad Media
 
 ### Documentación
-- [ ] Documentar API con ejemplos
+- [x] Documentar API con ejemplos
 - [ ] Crear guía de contribución
 - [ ] Documentar proceso de despliegue
 - [ ] Crear guía de seguridad
@@ -70,6 +70,15 @@
 - [x] Implementar rate limiting
 - [x] Implementar autenticación JWT
 - [x] Implementar lista negra de tokens
+- [x] Mejorar sistema de logging con rotación de archivos
+- [x] Centralizar configuración del proyecto
+
+## Próximos Pasos
+1. Implementar pruebas unitarias y de integración
+2. Crear guía de contribución y proceso de despliegue
+3. Implementar sistema de plugins para extensibilidad
+4. Mejorar el manejo de errores y notificaciones
+5. Optimizar rendimiento y serialización
 
 ## Notas Adicionales
 - Las tareas están organizadas por prioridad y categoría
