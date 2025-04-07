@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 import time
 
 from app.api.endpoints import (
-    search_router,
+    # search_router,
     filesystem_router,
     tools_router,
     health_router,
@@ -38,7 +38,7 @@ app.add_exception_handler(MCPClaudeError, mcp_claude_error_handler)
 app.add_exception_handler(Exception, http_exception_handler)
 
 # Incluir routers
-app.include_router(search_router, prefix="/api", tags=["search"])
+# app.include_router(search_router, prefix="/api", tags=["search"])
 app.include_router(filesystem_router, prefix="/api", tags=["filesystem"])
 app.include_router(tools_router, prefix="/api", tags=["tools"])
 app.include_router(health_router, prefix="/api", tags=["health"])

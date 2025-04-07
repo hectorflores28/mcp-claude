@@ -9,8 +9,8 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # API Keys
-    BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    # BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
+    CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
     
     # Configuración del servidor
     HOST: str = os.getenv("HOST", "0.0.0.0")
@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     
     # Configuración de Claude
     CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240229")
-    MAX_TOKENS: int = int(os.getenv("MAX_TOKENS", "4096"))
-    TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.7"))
+    CLAUDE_MAX_TOKENS: int = int(os.getenv("CLAUDE_MAX_TOKENS", "4096"))
+    CLAUDE_TEMPERATURE: float = float(os.getenv("CLAUDE_TEMPERATURE", "0.7"))
     
     # Configuración de búsqueda
     DEFAULT_SEARCH_RESULTS: int = int(os.getenv("DEFAULT_SEARCH_RESULTS", "5"))
