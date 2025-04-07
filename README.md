@@ -8,17 +8,20 @@ Sistema de gestión de prompts para Claude 3.5 Sonnet.
 - ✅ Estructura base del proyecto
 - ✅ Configuración de Docker y Docker Compose
 - ✅ Sistema de logs estandarizado
+- ✅ Sistema de métricas
 - ✅ Pruebas unitarias para:
   - ✅ ClaudeClient
   - ✅ FileSystemService
   - ✅ SearchService
   - ✅ CacheService
   - ✅ Sistema de logs
+  - ✅ Sistema de métricas
 - ✅ Servicios principales:
   - ✅ Sistema de caché
   - ✅ Sistema de búsqueda
   - ✅ Sistema de archivos
   - ✅ Sistema de logs
+  - ✅ Sistema de métricas
 
 ### En Progreso
 - 🔄 Integración con API de Claude
@@ -27,7 +30,7 @@ Sistema de gestión de prompts para Claude 3.5 Sonnet.
 
 ### Pendiente
 - ⏳ Sistema de autenticación
-- ⏳ Sistema de monitoreo
+- ⏳ Sistema de monitoreo en tiempo real
 - ⏳ Documentación completa
 - ⏳ Pruebas de integración
 - ⏳ Pruebas de rendimiento
@@ -78,7 +81,8 @@ mcp-claude/
 │   └── utils/
 ├── data/
 │   ├── prompts/
-│   └── cache/
+│   ├── cache/
+│   └── metrics/
 ├── docs/
 ├── logs/
 │   ├── app/
