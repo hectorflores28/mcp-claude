@@ -3,12 +3,14 @@ import logging
 import logging.handlers
 import os
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from app.core.config import settings
 from app.core.markdown_logger import MarkdownLogger
 import json
 import time
 from pathlib import Path
+import asyncio
+from app.core.cache import get_cache
 
 # Asegurar que el directorio de logs existe
 log_dir = Path(settings.LOG_DIR)
@@ -26,7 +28,12 @@ logging.basicConfig(
     level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_dir / "app.log", mode='a', encoding='utf-8'),
+        logging.handlers.RotatingFileHandler(
+            log_dir / "app.log",
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        ),
         logging.StreamHandler()
     ]
 )
@@ -53,195 +60,283 @@ class ClaudeLogFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 class LogManager:
-    """Gestor de logs para MCP-Claude"""
+    """Gestor de logs con soporte para procesamiento en lote"""
     
     _instance = None
-    _logger = None
-    _initialized = False
+    _lock = asyncio.Lock()
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(LogManager, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
     
-    @classmethod
-    def initialize(cls) -> None:
-        """
-        Inicializa el sistema de logging con configuración personalizada
-        """
-        if cls._initialized:
-            return
-
-        # Crear directorio de logs si no existe
-        log_dir = settings.LOG_DIR
-        os.makedirs(log_dir, exist_ok=True)
-
-        # Configurar logger principal
-        logger = logging.getLogger("mcp_claude")
-        logger.setLevel(getattr(logging, settings.LOG_LEVEL))
-
-        # Formato de logging
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-
-        # Handler para archivo con rotación
-        log_file = os.path.join(log_dir, "app.log")
-        file_handler = logging.handlers.RotatingFileHandler(
-            log_file,
+    def __init__(self):
+        if not hasattr(self, '_initialized'):
+            self._cache = get_cache()
+            self._batch_size = 100
+            self._flush_interval = 60  # 1 minuto
+            self._last_flush = time.time()
+            
+            # Buffers para logs
+            self._info_buffer: List[Dict] = []
+            self._error_buffer: List[Dict] = []
+            self._request_buffer: List[Dict] = []
+            
+            # Configurar handlers
+            self._setup_handlers()
+            
+            self._initialized = True
+    
+    def _setup_handlers(self):
+        """Configura los handlers de logging"""
+        # Handler para logs JSON
+        json_handler = logging.handlers.RotatingFileHandler(
+            log_dir / "claude.json",
             maxBytes=10*1024*1024,  # 10MB
             backupCount=5,
             encoding='utf-8'
         )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-        # Handler para consola
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        logger.addHandler(console_handler)
-
-        cls._logger = logger
-        cls._initialized = True
-
-        # Log inicial
-        cls.log_info("Sistema de logging inicializado")
-        cls.log_info(f"Directorio de logs: {log_dir}")
-        cls.log_info(f"Nivel de logging: {settings.LOG_LEVEL}")
-    
-    @classmethod
-    def log_info(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Registra un mensaje de nivel INFO
-        """
-        if not cls._initialized:
-            cls.initialize()
-        cls._logger.info(message, extra=extra or {})
-    
-    @classmethod
-    def log_error(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Registra un mensaje de nivel ERROR
-        """
-        if not cls._initialized:
-            cls.initialize()
-        cls._logger.error(message, extra=extra or {})
-    
-    @classmethod
-    def log_warning(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Registra un mensaje de nivel WARNING
-        """
-        if not cls._initialized:
-            cls.initialize()
-        cls._logger.warning(message, extra=extra or {})
-    
-    @classmethod
-    def log_debug(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Registra un mensaje de nivel DEBUG
-        """
-        if not cls._initialized:
-            cls.initialize()
-        cls._logger.debug(message, extra=extra or {})
-    
-    @classmethod
-    def log_request(cls, method: str, url: str, status_code: int, process_time: float) -> None:
-        """
-        Registra información de una solicitud HTTP
-        """
-        extra = {
-            "method": method,
-            "url": url,
-            "status_code": status_code,
-            "process_time": f"{process_time:.3f}s"
-        }
+        json_handler.setFormatter(ClaudeLogFormatter())
         
-        if status_code >= 500:
-            cls.log_error(f"Error en solicitud: {method} {url}", extra)
-        elif status_code >= 400:
-            cls.log_warning(f"Solicitud fallida: {method} {url}", extra)
-        else:
-            cls.log_info(f"Solicitud exitosa: {method} {url}", extra)
+        # Handler para logs de requests
+        request_handler = logging.handlers.RotatingFileHandler(
+            log_dir / "requests.log",
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
+            encoding='utf-8'
+        )
+        request_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(method)s - %(url)s - %(status_code)s - %(process_time).2fs'
+        ))
+        
+        # Añadir handlers al logger
+        logger.addHandler(json_handler)
+        logger.addHandler(request_handler)
     
     @classmethod
-    def is_available(cls) -> bool:
+    def get_logger(cls, name: str) -> logging.Logger:
         """
-        Verifica si el sistema de logging está disponible
+        Obtiene un logger con el nombre especificado
+        
+        Args:
+            name: Nombre del logger
+            
+        Returns:
+            Logger configurado
         """
-        return cls._initialized and cls._logger is not None
+        return logging.getLogger(name)
     
-    @classmethod
-    def log_api_request(cls, method: str, path: str, data: Optional[Dict[str, Any]] = None) -> None:
-        """Registra una solicitud API"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"API Request: {method} {path}")
-        if data:
-            logger.info(f"Request Data: {json.dumps(data)[:500]}...")
+    async def log_info(self, message: str, extra: Optional[Dict] = None) -> None:
+        """
+        Registra un mensaje de información
+        
+        Args:
+            message: Mensaje a registrar
+            extra: Datos adicionales
+        """
+        try:
+            log_data = {
+                "timestamp": datetime.now().isoformat(),
+                "level": "INFO",
+                "message": message,
+                "extra": extra or {}
+            }
+            
+            self._info_buffer.append(log_data)
+            await self._flush_if_needed()
+            
+            logger.info(message, extra=extra or {})
+        except Exception as e:
+            print(f"Error al registrar log de información: {str(e)}")
     
-    @classmethod
-    def log_api_response(cls, method: str, path: str, status_code: int, response_time: float) -> None:
-        """Registra una respuesta API"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"API Response: {method} {path} - Status: {status_code} - Time: {response_time:.2f}s")
+    async def log_error(self, message: str, error: Optional[Exception] = None, extra: Optional[Dict] = None) -> None:
+        """
+        Registra un mensaje de error
+        
+        Args:
+            message: Mensaje a registrar
+            error: Excepción asociada
+            extra: Datos adicionales
+        """
+        try:
+            error_data = {
+                "type": error.__class__.__name__ if error else None,
+                "message": str(error) if error else None,
+                "traceback": getattr(error, "__traceback__", None)
+            }
+            
+            log_data = {
+                "timestamp": datetime.now().isoformat(),
+                "level": "ERROR",
+                "message": message,
+                "error": error_data,
+                "extra": extra or {}
+            }
+            
+            self._error_buffer.append(log_data)
+            await self._flush_if_needed()
+            
+            logger.error(message, exc_info=error, extra=extra or {})
+        except Exception as e:
+            print(f"Error al registrar log de error: {str(e)}")
     
-    @classmethod
-    def log_claude_request(cls, prompt: str, model: str, max_tokens: int) -> None:
-        """Registra una solicitud a Claude"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"Claude Request: Model: {model}, Max Tokens: {max_tokens}")
-        logger.info(f"Prompt: {prompt[:200]}...")
+    async def log_request(self, method: str, url: str, status_code: int, process_time: float) -> None:
+        """
+        Registra una solicitud HTTP
+        
+        Args:
+            method: Método HTTP
+            url: URL de la solicitud
+            status_code: Código de estado
+            process_time: Tiempo de procesamiento
+        """
+        try:
+            log_data = {
+                "timestamp": datetime.now().isoformat(),
+                "method": method,
+                "url": url,
+                "status_code": status_code,
+                "process_time": process_time
+            }
+            
+            self._request_buffer.append(log_data)
+            await self._flush_if_needed()
+            
+            logger.info(
+                f"{method} {url} - {status_code} - {process_time:.2f}s",
+                extra={"method": method, "url": url, "status_code": status_code, "process_time": process_time}
+            )
+        except Exception as e:
+            print(f"Error al registrar log de solicitud: {str(e)}")
     
-    @classmethod
-    def log_claude_response(cls, model: str, response_time: float, token_count: int) -> None:
-        """Registra una respuesta de Claude"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"Claude Response: Model: {model}, Time: {response_time:.2f}s, Tokens: {token_count}")
+    async def _flush_if_needed(self) -> None:
+        """
+        Flush los buffers si es necesario
+        """
+        current_time = time.time()
+        if (current_time - self._last_flush >= self._flush_interval or
+            len(self._info_buffer) >= self._batch_size or
+            len(self._error_buffer) >= self._batch_size or
+            len(self._request_buffer) >= self._batch_size):
+            await self._flush()
     
-    @classmethod
-    def log_search(cls, query: str, results: list):
-        """Registra una búsqueda"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"Search: {query} - Results: {len(results)}")
+    async def _flush(self) -> None:
+        """
+        Flush los buffers a Redis
+        """
+        async with self._lock:
+            try:
+                # Preparar datos para info logs
+                if self._info_buffer:
+                    await self._cache.set_many({
+                        f"logs:info:{i}": data
+                        for i, data in enumerate(self._info_buffer)
+                    }, ttl=86400)  # 24 horas
+                    self._info_buffer.clear()
+                
+                # Preparar datos para error logs
+                if self._error_buffer:
+                    await self._cache.set_many({
+                        f"logs:error:{i}": data
+                        for i, data in enumerate(self._error_buffer)
+                    }, ttl=86400)  # 24 horas
+                    self._error_buffer.clear()
+                
+                # Preparar datos para request logs
+                if self._request_buffer:
+                    await self._cache.set_many({
+                        f"logs:request:{i}": data
+                        for i, data in enumerate(self._request_buffer)
+                    }, ttl=86400)  # 24 horas
+                    self._request_buffer.clear()
+                
+                self._last_flush = time.time()
+            except Exception as e:
+                print(f"Error al almacenar logs: {str(e)}")
     
-    @classmethod
-    def log_file_operation(cls, operation: str, filename: str, details: str = None):
-        """Registra una operación de archivo"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"File Operation: {operation} - {filename}")
-        if details:
-            logger.info(f"Details: {details}")
+    async def get_info_logs(self, limit: int = 100) -> List[Dict]:
+        """
+        Obtiene logs de información
+        
+        Args:
+            limit: Límite de logs a obtener
+            
+        Returns:
+            Lista de logs
+        """
+        try:
+            keys = [f"logs:info:{i}" for i in range(limit)]
+            values = await self._cache.get_many(keys)
+            
+            logs = []
+            for value in values.values():
+                if value:
+                    logs.append(value)
+            
+            return sorted(
+                logs,
+                key=lambda x: x["timestamp"],
+                reverse=True
+            )
+        except Exception as e:
+            print(f"Error al obtener logs de información: {str(e)}")
+            return []
     
-    @classmethod
-    def log_claude_operation(cls, operation: str, prompt: str, response: str):
-        """Registra una operación de Claude"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"Claude Operation: {operation}")
-        logger.info(f"Prompt: {prompt[:200]}...")
-        logger.info(f"Response: {response[:200]}...")
+    async def get_error_logs(self, limit: int = 100) -> List[Dict]:
+        """
+        Obtiene logs de error
+        
+        Args:
+            limit: Límite de logs a obtener
+            
+        Returns:
+            Lista de logs
+        """
+        try:
+            keys = [f"logs:error:{i}" for i in range(limit)]
+            values = await self._cache.get_many(keys)
+            
+            logs = []
+            for value in values.values():
+                if value:
+                    logs.append(value)
+            
+            return sorted(
+                logs,
+                key=lambda x: x["timestamp"],
+                reverse=True
+            )
+        except Exception as e:
+            print(f"Error al obtener logs de error: {str(e)}")
+            return []
     
-    @classmethod
-    def log_model_request(
-        cls,
-        model: str,
-        prompt: str,
-        parameters: Dict[str, Any]
-    ) -> None:
-        """Registra una solicitud de modelo"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"Model Request: {model}")
-        logger.info(f"Parameters: {json.dumps(parameters)}")
-        logger.info(f"Prompt: {prompt[:200]}...")
-    
-    @classmethod
-    def log_mcp_request(cls, endpoint: str, data: Dict[str, Any]) -> None:
-        """Registra una solicitud MCP"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"MCP Request: {endpoint}")
-        logger.info(f"Data: {json.dumps(data)[:500]}...")
-    
-    @classmethod
-    def log_mcp_response(cls, endpoint: str, status: int, response_time: float) -> None:
-        """Registra una respuesta MCP"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(f"MCP Response: {endpoint} - Status: {status} - Time: {response_time:.2f}s") 
+    async def get_request_logs(self, limit: int = 100) -> List[Dict]:
+        """
+        Obtiene logs de solicitudes
+        
+        Args:
+            limit: Límite de logs a obtener
+            
+        Returns:
+            Lista de logs
+        """
+        try:
+            keys = [f"logs:request:{i}" for i in range(limit)]
+            values = await self._cache.get_many(keys)
+            
+            logs = []
+            for value in values.values():
+                if value:
+                    logs.append(value)
+            
+            return sorted(
+                logs,
+                key=lambda x: x["timestamp"],
+                reverse=True
+            )
+        except Exception as e:
+            print(f"Error al obtener logs de solicitudes: {str(e)}")
+            return []
+
+# Instancia global del gestor de logs
+log_manager = LogManager() 

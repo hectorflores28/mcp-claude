@@ -48,52 +48,49 @@ class TokenBlacklist:
                 # Procesar en lotes
                 for i in range(0, len(keys), self._batch_size):
                     batch = keys[i:i + self._batch_size]
-                    
-                    # Verificar expiración
-                    pipe = self._cache.redis.pipeline()
+                    # Verificar TTL de cada clave en el lote
                     for key in batch:
-                        pipe.ttl(key)
-                    ttls = await asyncio.to_thread(lambda: pipe.execute())
-                    
-                    # Eliminar tokens expirados
-                    expired_keys = [k for k, ttl in zip(batch, ttls) if ttl <= 0]
-                    if expired_keys:
-                        await self._cache.delete_many(expired_keys)
-                        logger.info(f"Limpieza de {len(expired_keys)} tokens expirados")
+                        ttl = await self._cache.get_ttl(key)
+                        if ttl is None or ttl <= 0:
+                            await self._cache.delete(key)
                 
                 self._last_cleanup = current_time
+                logger.info(f"Limpieza de blacklist completada: {len(keys)} tokens procesados")
             except Exception as e:
-                logger.error(f"Error durante limpieza de blacklist: {str(e)}")
+                logger.error(f"Error durante la limpieza de blacklist: {str(e)}")
+                raise
 
-    async def add_token(self, token: str, expires_in: int) -> bool:
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
+    async def add_token(self, token: str, expires_in: int = 3600) -> bool:
         """
-        Agrega un token a la blacklist con metadatos
+        Añade un token a la blacklist
         
         Args:
-            token: Token a agregar
+            token: Token a añadir
             expires_in: Tiempo de expiración en segundos
             
         Returns:
-            bool: True si se agregó correctamente
+            True si se añadió correctamente
         """
         try:
-            # Ejecutar limpieza si es necesario
-            await self._cleanup_expired()
-            
-            # Agregar token con metadatos
-            return await self._cache.set(
-                self._get_key(token),
-                {
-                    "added_at": datetime.utcnow().isoformat(),
-                    "expires_at": (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat(),
-                    "token_hash": hash(token)
-                },
-                expire=expires_in
-            )
+            key = self._get_key(token)
+            await self._cache.set(key, True, ttl=expires_in)
+            return True
         except Exception as e:
-            logger.error(f"Error al agregar token a blacklist: {str(e)}")
+            logger.error(f"Error al añadir token a blacklist: {str(e)}")
             return False
 
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
     async def is_blacklisted(self, token: str) -> bool:
         """
         Verifica si un token está en la blacklist
@@ -102,18 +99,21 @@ class TokenBlacklist:
             token: Token a verificar
             
         Returns:
-            bool: True si el token está blacklisteado
+            True si el token está en la blacklist
         """
         try:
-            # Ejecutar limpieza si es necesario
-            await self._cleanup_expired()
-            
-            # Verificar token
-            return await self._cache.get(self._get_key(token)) is not None
+            key = self._get_key(token)
+            return await self._cache.exists(key)
         except Exception as e:
             logger.error(f"Error al verificar token en blacklist: {str(e)}")
             return False
 
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
     async def remove_token(self, token: str) -> bool:
         """
         Elimina un token de la blacklist
@@ -122,121 +122,125 @@ class TokenBlacklist:
             token: Token a eliminar
             
         Returns:
-            bool: True si se eliminó correctamente
+            True si se eliminó correctamente
         """
         try:
-            return await self._cache.delete(self._get_key(token))
+            key = self._get_key(token)
+            return await self._cache.delete(key)
         except Exception as e:
             logger.error(f"Error al eliminar token de blacklist: {str(e)}")
             return False
 
-    async def clear(self) -> bool:
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
+    async def add_tokens_batch(self, tokens: List[str], expires_in: int = 3600) -> Dict[str, bool]:
         """
-        Limpia toda la blacklist
-        
-        Returns:
-            bool: True si se limpió correctamente
-        """
-        try:
-            # Obtener todas las claves de blacklist
-            keys = await self._cache.scan_iter(match=f"{self._prefix}*")
-            
-            # Eliminar en lotes
-            for i in range(0, len(keys), self._batch_size):
-                batch = keys[i:i + self._batch_size]
-                await self._cache.delete_many(batch)
-            
-            return True
-        except Exception as e:
-            logger.error(f"Error al limpiar blacklist: {str(e)}")
-            return False
-
-    async def get_blacklisted_tokens(self) -> List[Dict[str, Any]]:
-        """
-        Obtiene todos los tokens blacklisteados con sus metadatos
-        
-        Returns:
-            List[Dict[str, Any]]: Lista de tokens blacklisteados con metadatos
-        """
-        try:
-            # Obtener todas las claves de blacklist
-            keys = await self._cache.scan_iter(match=f"{self._prefix}*")
-            
-            # Obtener valores en lotes
-            tokens = []
-            for i in range(0, len(keys), self._batch_size):
-                batch = keys[i:i + self._batch_size]
-                values = await self._cache.mget(batch)
-                
-                # Procesar resultados
-                for key, value in zip(batch, values):
-                    if value is not None:
-                        token = key[len(self._prefix):]
-                        tokens.append({
-                            "token": token,
-                            "metadata": value
-                        })
-            
-            return tokens
-        except Exception as e:
-            logger.error(f"Error al obtener tokens blacklisteados: {str(e)}")
-            return []
-
-    async def add_tokens(self, tokens: List[Dict[str, Any]]) -> bool:
-        """
-        Agrega múltiples tokens a la blacklist
+        Añade múltiples tokens a la blacklist en un solo lote
         
         Args:
-            tokens: Lista de diccionarios con token y expires_in
+            tokens: Lista de tokens a añadir
+            expires_in: Tiempo de expiración en segundos
             
         Returns:
-            bool: True si se agregaron correctamente
+            Diccionario con el resultado de cada token
         """
         try:
-            # Ejecutar limpieza si es necesario
-            await self._cleanup_expired()
+            if not tokens:
+                return {}
+                
+            # Preparar mapeo de tokens
+            mapping = {self._get_key(token): True for token in tokens}
             
-            # Preparar datos para mset
-            mapping = {}
-            for token_data in tokens:
-                token = token_data["token"]
-                expires_in = token_data.get("expires_in", 3600)
-                mapping[self._get_key(token)] = {
-                    "added_at": datetime.utcnow().isoformat(),
-                    "expires_at": (datetime.utcnow() + timedelta(seconds=expires_in)).isoformat(),
-                    "token_hash": hash(token)
-                }
+            # Almacenar en lote
+            success = await self._cache.set_many(mapping, ttl=expires_in)
             
-            # Agregar tokens en lote
-            return await self._cache.mset(mapping, expire=3600)
+            # Preparar resultado
+            result = {token: success for token in tokens}
+            return result
         except Exception as e:
-            logger.error(f"Error al agregar tokens a blacklist: {str(e)}")
-            return False
+            logger.error(f"Error al añadir tokens en lote a blacklist: {str(e)}")
+            return {token: False for token in tokens}
 
-    async def remove_tokens(self, tokens: List[str]) -> bool:
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
+    async def check_tokens_batch(self, tokens: List[str]) -> Dict[str, bool]:
         """
-        Elimina múltiples tokens de la blacklist
+        Verifica múltiples tokens en la blacklist en un solo lote
+        
+        Args:
+            tokens: Lista de tokens a verificar
+            
+        Returns:
+            Diccionario con el estado de cada token
+        """
+        try:
+            if not tokens:
+                return {}
+                
+            # Obtener claves
+            keys = [self._get_key(token) for token in tokens]
+            
+            # Verificar existencia en lote
+            exists_map = await self._cache.get_many(keys)
+            
+            # Preparar resultado
+            result = {token: self._get_key(token) in exists_map for token in tokens}
+            return result
+        except Exception as e:
+            logger.error(f"Error al verificar tokens en lote en blacklist: {str(e)}")
+            return {token: False for token in tokens}
+
+    @backoff.on_exception(
+        backoff.expo,
+        Exception,
+        max_tries=3,
+        max_time=5
+    )
+    async def remove_tokens_batch(self, tokens: List[str]) -> Dict[str, bool]:
+        """
+        Elimina múltiples tokens de la blacklist en un solo lote
         
         Args:
             tokens: Lista de tokens a eliminar
             
         Returns:
-            bool: True si se eliminaron correctamente
+            Diccionario con el resultado de cada token
         """
         try:
-            # Preparar claves
+            if not tokens:
+                return {}
+                
+            # Obtener claves
             keys = [self._get_key(token) for token in tokens]
             
             # Eliminar en lote
-            return await self._cache.delete_many(keys)
+            success = await self._cache.delete_many(keys)
+            
+            # Preparar resultado
+            result = {token: success for token in tokens}
+            return result
         except Exception as e:
-            logger.error(f"Error al eliminar tokens de blacklist: {str(e)}")
-            return False
+            logger.error(f"Error al eliminar tokens en lote de blacklist: {str(e)}")
+            return {token: False for token in tokens}
 
+# Instancia global de blacklist con decorador lru_cache
 @lru_cache()
 def get_blacklist() -> TokenBlacklist:
-    """Obtiene una instancia del sistema de blacklist"""
+    """
+    Obtiene una instancia de la blacklist.
+    
+    Returns:
+        Instancia de TokenBlacklist
+    """
     return TokenBlacklist()
 
-# Instancia global
+# Instancia global de blacklist
 blacklist = get_blacklist() 

@@ -13,6 +13,8 @@ import redis
 from redis.exceptions import RedisError
 from backoff import on_exception, expo
 from app.config.settings import settings
+from redis.connection import ConnectionPool
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,8 @@ class Cache:
     def __init__(self):
         """Inicializa el cliente de Redis con configuración optimizada."""
         try:
-            self.redis = redis.Redis(
+            # Configurar pool de conexiones
+            self.pool = ConnectionPool(
                 host=settings.REDIS_HOST,
                 port=settings.REDIS_PORT,
                 password=settings.REDIS_PASSWORD,
@@ -42,10 +45,12 @@ class Cache:
                 ssl=settings.REDIS_SSL,
                 socket_timeout=settings.REDIS_TIMEOUT,
                 socket_connect_timeout=settings.REDIS_TIMEOUT,
+                max_connections=settings.REDIS_MAX_CONNECTIONS,
                 retry_on_timeout=True,
-                decode_responses=True,
-                max_connections=settings.REDIS_MAX_CONNECTIONS
+                decode_responses=True
             )
+            
+            self.redis = redis.Redis(connection_pool=self.pool)
             self.prefix = settings.CACHE_PREFIX
             self.default_ttl = settings.CACHE_TTL
             self._test_connection()
@@ -61,7 +66,7 @@ class Cache:
             logger.error(f"Error al probar conexión con Redis: {str(e)}")
             raise CacheConnectionError(f"Error de conexión con Redis: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def get(self, key: str) -> Optional[Any]:
         """
         Obtiene un valor del caché.
@@ -85,7 +90,7 @@ class Cache:
             logger.error(f"Error al obtener valor de caché: {str(e)}")
             raise CacheOperationError(f"Error al obtener valor de caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """
         Almacena un valor en el caché.
@@ -113,7 +118,7 @@ class Cache:
             logger.error(f"Error al almacenar en caché: {str(e)}")
             raise CacheOperationError(f"Error al almacenar en caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def delete(self, key: str) -> bool:
         """
         Elimina un valor del caché.
@@ -134,7 +139,7 @@ class Cache:
             logger.error(f"Error al eliminar de caché: {str(e)}")
             raise CacheOperationError(f"Error al eliminar de caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def exists(self, key: str) -> bool:
         """
         Verifica si existe una clave en el caché.
@@ -155,7 +160,7 @@ class Cache:
             logger.error(f"Error al verificar existencia en caché: {str(e)}")
             raise CacheOperationError(f"Error al verificar existencia en caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def clear(self) -> bool:
         """
         Limpia todo el caché.
@@ -176,7 +181,7 @@ class Cache:
             logger.error(f"Error al limpiar caché: {str(e)}")
             raise CacheOperationError(f"Error al limpiar caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def get_many(self, keys: List[str]) -> Dict[str, Any]:
         """
         Obtiene múltiples valores del caché.
@@ -210,7 +215,7 @@ class Cache:
             logger.error(f"Error al obtener múltiples valores de caché: {str(e)}")
             raise CacheOperationError(f"Error al obtener múltiples valores de caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def set_many(self, mapping: Dict[str, Any], ttl: Optional[int] = None) -> bool:
         """
         Almacena múltiples valores en el caché.
@@ -241,7 +246,7 @@ class Cache:
             logger.error(f"Error al almacenar múltiples valores en caché: {str(e)}")
             raise CacheOperationError(f"Error al almacenar múltiples valores en caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def delete_many(self, keys: List[str]) -> bool:
         """
         Elimina múltiples valores del caché.
@@ -265,7 +270,7 @@ class Cache:
             logger.error(f"Error al eliminar múltiples valores de caché: {str(e)}")
             raise CacheOperationError(f"Error al eliminar múltiples valores de caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def increment(self, key: str, amount: int = 1) -> int:
         """
         Incrementa un contador en el caché.
@@ -287,7 +292,7 @@ class Cache:
             logger.error(f"Error al incrementar contador en caché: {str(e)}")
             raise CacheOperationError(f"Error al incrementar contador en caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def decrement(self, key: str, amount: int = 1) -> int:
         """
         Decrementa un contador en el caché.
@@ -309,7 +314,7 @@ class Cache:
             logger.error(f"Error al decrementar contador en caché: {str(e)}")
             raise CacheOperationError(f"Error al decrementar contador en caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def get_ttl(self, key: str) -> Optional[int]:
         """
         Obtiene el tiempo restante de vida de una clave.
@@ -331,7 +336,7 @@ class Cache:
             logger.error(f"Error al obtener TTL de caché: {str(e)}")
             raise CacheOperationError(f"Error al obtener TTL de caché: {str(e)}")
     
-    @on_exception(expo, RedisError, max_tries=3)
+    @on_exception(expo, RedisError, max_tries=3, max_time=5)
     def touch(self, key: str, ttl: Optional[int] = None) -> bool:
         """
         Actualiza el tiempo de vida de una clave.
@@ -355,6 +360,16 @@ class Cache:
             logger.error(f"Error al actualizar TTL en caché: {str(e)}")
             raise CacheOperationError(f"Error al actualizar TTL en caché: {str(e)}")
 
+# Instancia global de caché con decorador lru_cache para evitar múltiples instancias
+@lru_cache()
+def get_cache() -> Cache:
+    """
+    Obtiene una instancia del caché.
+    
+    Returns:
+        Instancia de Cache
+    """
+    return Cache()
 
 # Instancia global de caché
-cache = Cache() 
+cache = get_cache() 

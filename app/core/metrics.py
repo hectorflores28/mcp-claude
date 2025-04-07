@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 import json
 import threading
 import asyncio
+from app.core.cache import get_cache
 
 @dataclass
 class APIMetric:
@@ -42,89 +43,223 @@ class MetricsCollector:
     
     def __init__(self):
         if not hasattr(self, '_initialized'):
-            self.api_metrics: List[APIMetric] = []
-            self.performance_metrics: List[PerformanceMetric] = []
+            self._cache = get_cache()
+            self._batch_size = 100
+            self._flush_interval = 60  # 1 minuto
+            self._last_flush = time.time()
+            self._flush_lock = asyncio.Lock()
+            
+            # Métricas Prometheus
+            self.api_requests = Counter(
+                'mcp_api_requests_total',
+                'Total de solicitudes API',
+                ['endpoint', 'method', 'status_code']
+            )
+            self.api_latency = Histogram(
+                'mcp_api_latency_seconds',
+                'Latencia de solicitudes API',
+                ['endpoint', 'method']
+            )
+            self.active_connections = Gauge(
+                'mcp_active_connections',
+                'Conexiones activas'
+            )
+            self.cpu_usage = Gauge(
+                'mcp_cpu_usage_percent',
+                'Uso de CPU'
+            )
+            self.memory_usage = Gauge(
+                'mcp_memory_usage_percent',
+                'Uso de memoria'
+            )
+            
+            # Buffers para métricas
+            self._api_metrics_buffer: List[APIMetric] = []
+            self._performance_metrics_buffer: List[PerformanceMetric] = []
+            
             self._initialized = True
     
-    def record_api_call(self, metric: APIMetric) -> None:
-        """Registra una métrica de API"""
-        with self._lock:
-            self.api_metrics.append(metric)
-            # Mantener solo las últimas 1000 métricas
-            if len(self.api_metrics) > 1000:
-                self.api_metrics = self.api_metrics[-1000:]
+    async def record_api_call(self, metric: APIMetric) -> None:
+        """
+        Registra una métrica de API
+        
+        Args:
+            metric: Métrica a registrar
+        """
+        try:
+            # Actualizar Prometheus
+            self.api_requests.labels(
+                endpoint=metric.endpoint,
+                method=metric.method,
+                status_code=metric.status_code
+            ).inc()
+            
+            self.api_latency.labels(
+                endpoint=metric.endpoint,
+                method=metric.method
+            ).observe(metric.response_time)
+            
+            # Añadir a buffer
+            self._api_metrics_buffer.append(metric)
+            
+            # Flush si es necesario
+            await self._flush_if_needed()
+        except Exception as e:
+            LogManager.log_error("metrics", f"Error al registrar métrica de API: {str(e)}")
     
-    def record_performance(self, metric: PerformanceMetric) -> None:
-        """Registra una métrica de rendimiento"""
-        with self._lock:
-            self.performance_metrics.append(metric)
-            # Mantener solo las últimas 100 métricas
-            if len(self.performance_metrics) > 100:
-                self.performance_metrics = self.performance_metrics[-100:]
+    async def record_performance(self, metric: PerformanceMetric) -> None:
+        """
+        Registra una métrica de rendimiento
+        
+        Args:
+            metric: Métrica a registrar
+        """
+        try:
+            # Actualizar Prometheus
+            self.active_connections.set(metric.active_connections)
+            self.cpu_usage.set(metric.cpu_usage)
+            self.memory_usage.set(metric.memory_usage)
+            
+            # Añadir a buffer
+            self._performance_metrics_buffer.append(metric)
+            
+            # Flush si es necesario
+            await self._flush_if_needed()
+        except Exception as e:
+            LogManager.log_error("metrics", f"Error al registrar métrica de rendimiento: {str(e)}")
     
-    def get_api_metrics(self, 
-                       start_time: Optional[datetime] = None,
-                       end_time: Optional[datetime] = None) -> List[APIMetric]:
-        """Obtiene métricas de API filtradas por rango de tiempo"""
-        with self._lock:
-            metrics = self.api_metrics
-            if start_time:
-                metrics = [m for m in metrics if m.timestamp >= start_time]
-            if end_time:
-                metrics = [m for m in metrics if m.timestamp <= end_time]
-            return metrics
+    async def _flush_if_needed(self) -> None:
+        """
+        Flush los buffers si es necesario
+        """
+        current_time = time.time()
+        if (current_time - self._last_flush >= self._flush_interval or
+            len(self._api_metrics_buffer) >= self._batch_size or
+            len(self._performance_metrics_buffer) >= self._batch_size):
+            await self._flush()
     
-    def get_performance_metrics(self,
-                              start_time: Optional[datetime] = None,
-                              end_time: Optional[datetime] = None) -> List[PerformanceMetric]:
-        """Obtiene métricas de rendimiento filtradas por rango de tiempo"""
-        with self._lock:
-            metrics = self.performance_metrics
-            if start_time:
-                metrics = [m for m in metrics if m.timestamp >= start_time]
-            if end_time:
-                metrics = [m for m in metrics if m.timestamp <= end_time]
-            return metrics
+    async def _flush(self) -> None:
+        """
+        Flush los buffers a Redis
+        """
+        async with self._flush_lock:
+            try:
+                # Preparar datos para API metrics
+                if self._api_metrics_buffer:
+                    api_data = [
+                        {
+                            "endpoint": m.endpoint,
+                            "method": m.method,
+                            "status_code": m.status_code,
+                            "response_time": m.response_time,
+                            "timestamp": m.timestamp.isoformat(),
+                            "tokens_used": m.tokens_used,
+                            "error_type": m.error_type
+                        }
+                        for m in self._api_metrics_buffer
+                    ]
+                    
+                    # Almacenar en Redis
+                    await self._cache.set_many({
+                        f"metrics:api:{i}": data
+                        for i, data in enumerate(api_data)
+                    }, ttl=86400)  # 24 horas
+                    
+                    # Limpiar buffer
+                    self._api_metrics_buffer.clear()
+                
+                # Preparar datos para performance metrics
+                if self._performance_metrics_buffer:
+                    perf_data = [
+                        {
+                            "cpu_usage": m.cpu_usage,
+                            "memory_usage": m.memory_usage,
+                            "active_connections": m.active_connections,
+                            "timestamp": m.timestamp.isoformat()
+                        }
+                        for m in self._performance_metrics_buffer
+                    ]
+                    
+                    # Almacenar en Redis
+                    await self._cache.set_many({
+                        f"metrics:perf:{i}": data
+                        for i, data in enumerate(perf_data)
+                    }, ttl=86400)  # 24 horas
+                    
+                    # Limpiar buffer
+                    self._performance_metrics_buffer.clear()
+                
+                self._last_flush = time.time()
+                LogManager.log_info("metrics", "Métricas almacenadas correctamente")
+            except Exception as e:
+                LogManager.log_error("metrics", f"Error al almacenar métricas: {str(e)}")
     
-    def get_api_summary(self) -> Dict:
-        """Obtiene un resumen de las métricas de API"""
-        with self._lock:
-            if not self.api_metrics:
-                return {}
+    async def get_api_metrics(self, limit: int = 100) -> List[Dict]:
+        """
+        Obtiene métricas de API
+        
+        Args:
+            limit: Límite de métricas a obtener
             
-            total_calls = len(self.api_metrics)
-            success_calls = len([m for m in self.api_metrics if 200 <= m.status_code < 300])
-            error_calls = total_calls - success_calls
+        Returns:
+            Lista de métricas
+        """
+        try:
+            # Obtener claves
+            keys = [f"metrics:api:{i}" for i in range(limit)]
             
-            avg_response_time = sum(m.response_time for m in self.api_metrics) / total_calls
+            # Obtener valores
+            values = await self._cache.get_many(keys)
             
-            endpoint_counts = {}
-            for metric in self.api_metrics:
-                endpoint_counts[metric.endpoint] = endpoint_counts.get(metric.endpoint, 0) + 1
+            # Procesar resultados
+            metrics = []
+            for value in values.values():
+                if value:
+                    metrics.append(value)
             
-            return {
-                "total_calls": total_calls,
-                "success_calls": success_calls,
-                "error_calls": error_calls,
-                "success_rate": (success_calls / total_calls) * 100,
-                "average_response_time": avg_response_time,
-                "endpoint_distribution": endpoint_counts
-            }
+            return sorted(
+                metrics,
+                key=lambda x: x["timestamp"],
+                reverse=True
+            )
+        except Exception as e:
+            LogManager.log_error("metrics", f"Error al obtener métricas de API: {str(e)}")
+            return []
     
-    def get_performance_summary(self) -> Dict:
-        """Obtiene un resumen de las métricas de rendimiento"""
-        with self._lock:
-            if not self.performance_metrics:
-                return {}
+    async def get_performance_metrics(self, limit: int = 100) -> List[Dict]:
+        """
+        Obtiene métricas de rendimiento
+        
+        Args:
+            limit: Límite de métricas a obtener
             
-            latest = self.performance_metrics[-1]
+        Returns:
+            Lista de métricas
+        """
+        try:
+            # Obtener claves
+            keys = [f"metrics:perf:{i}" for i in range(limit)]
             
-            return {
-                "current_cpu_usage": latest.cpu_usage,
-                "current_memory_usage": latest.memory_usage,
-                "current_active_connections": latest.active_connections,
-                "timestamp": latest.timestamp.isoformat()
-            }
+            # Obtener valores
+            values = await self._cache.get_many(keys)
+            
+            # Procesar resultados
+            metrics = []
+            for value in values.values():
+                if value:
+                    metrics.append(value)
+            
+            return sorted(
+                metrics,
+                key=lambda x: x["timestamp"],
+                reverse=True
+            )
+        except Exception as e:
+            LogManager.log_error("metrics", f"Error al obtener métricas de rendimiento: {str(e)}")
+            return []
+
+# Instancia global de métricas
+metrics = MetricsCollector()
 
 class MetricsMiddleware:
     """Middleware para recolección automática de métricas"""
