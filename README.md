@@ -1,6 +1,7 @@
 # MCP-Claude
 
 Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
+https://www.anthropic.com/news/model-context-protocol
 
 ## Estado Actual
 
@@ -21,9 +22,7 @@ Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
 - 🔄 Documentación de API
 
 ### Pendiente
-- ⏳ Pruebas de integración
-- ⏳ Pruebas de rendimiento
-- ⏳ Despliegue en producción
+"PENDING.md" [!PENDING.md]
 
 ## Requisitos
 
