@@ -4,10 +4,11 @@ from fastapi.responses import JSONResponse
 import uvicorn
 import signal
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 import asyncio
 from functools import lru_cache
+import logging
 
 from app.api.endpoints import router as api_router, auth, mcp, plugins
 from app.core.logging import LogManager
@@ -19,6 +20,10 @@ from app.middleware.logging import LoggingMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 from app.middleware.auth import AuthMiddleware
 from app.core.plugins import plugin_manager
+from app.core.cache import get_cache
+
+# Configurar logging
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="MCP-Claude API",
@@ -35,12 +40,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inicializar servicios
+# Inicializar servicios con caché
 @lru_cache()
 def get_mcp_service():
     return MCPService()
 
+# Obtener instancia del servicio MCP
 mcp_service = get_mcp_service()
+
+# Obtener instancia del caché
+cache = get_cache()
 
 # Manejadores de señales para apagado graceful
 def signal_handler(sig, frame):
@@ -135,13 +144,20 @@ async def health_check():
     """
     Verifica el estado de salud del servidor
     """
+    # Intentar obtener del caché primero
+    cache_key = "health:status"
+    cached_status = await cache.get(cache_key)
+    
+    if cached_status:
+        return cached_status
+    
     # Ejecutar verificaciones en paralelo
     mcp_status, logging_status = await asyncio.gather(
         mcp_service.get_status(),
         LogManager.is_available()
     )
     
-    return {
+    status_data = {
         "status": "ok",
         "version": "1.1.0",
         "services": {
@@ -150,12 +166,24 @@ async def health_check():
             "plugins": len(plugin_manager.plugins) if settings.PLUGINS_ENABLED else 0
         }
     }
+    
+    # Guardar en caché por 30 segundos
+    await cache.set(cache_key, status_data, expire=30)
+    
+    return status_data
 
 @app.get("/status")
 async def status():
     """
     Obtiene el estado detallado del servidor
     """
+    # Intentar obtener del caché primero
+    cache_key = "status:detailed"
+    cached_status = await cache.get(cache_key)
+    
+    if cached_status:
+        return cached_status
+    
     plugins_status = {}
     if settings.PLUGINS_ENABLED:
         for name, plugin in plugin_manager.plugins.items():
@@ -170,7 +198,7 @@ async def status():
         LogManager.is_available()
     )
     
-    return {
+    status_data = {
         "status": "ok",
         "version": "1.1.0",
         "environment": settings.ENVIRONMENT,
@@ -181,6 +209,11 @@ async def status():
             "plugins": plugins_status
         }
     }
+    
+    # Guardar en caché por 60 segundos
+    await cache.set(cache_key, status_data, expire=60)
+    
+    return status_data
 
 if __name__ == "__main__":
     uvicorn.run(
