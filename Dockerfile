@@ -1,5 +1,5 @@
-# Usar una imagen base de Python 3.9
-FROM python:3.9-slim
+# Usar una imagen base de Python 3.10
+FROM python:3.10-slim
 
 # Establecer el directorio de trabajo
 WORKDIR /app
@@ -7,27 +7,27 @@ WORKDIR /app
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requirements.txt
+# Copiar archivos de requisitos
 COPY requirements.txt .
 
 # Instalar dependencias de Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Crear directorios necesarios
-RUN mkdir -p /app/logs /app/data /app/temp
-
 # Copiar el código de la aplicación
 COPY . .
 
-# Exponer el puerto
-EXPOSE 8000
+# Crear directorios necesarios
+RUN mkdir -p logs data temp
 
-# Configurar variables de entorno
+# Variables de entorno
 ENV PYTHONPATH=/app
-ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=production
+ENV DEBUG=false
+
+# Exponer puerto
+EXPOSE 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

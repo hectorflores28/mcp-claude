@@ -25,14 +25,14 @@
 
 ### Documentación
 - [x] Documentar API con ejemplos
-- [ ] Crear guía de contribución
+- [x] Crear guía de contribución
 - [ ] Documentar proceso de despliegue
 - [ ] Crear guía de seguridad
 
 ### Testing
 - [x] Implementar pruebas unitarias
 - [x] Implementar pruebas de integración
-- [ ] Configurar CI/CD
+- [x] Configurar CI/CD
 - [ ] Implementar pruebas de rendimiento
 
 ### Monitoreo
@@ -73,13 +73,15 @@
 - [x] Mejorar sistema de logging con rotación de archivos
 - [x] Centralizar configuración del proyecto
 - [x] Implementar pruebas unitarias y de integración
+- [x] Configurar CI/CD con GitHub Actions
+- [x] Crear guía de contribución
 
 ## Próximos Pasos
-1. Configurar CI/CD para automatizar pruebas
-2. Crear guía de contribución y proceso de despliegue
-3. Implementar sistema de plugins para extensibilidad
-4. Mejorar el manejo de errores y notificaciones
-5. Optimizar rendimiento y serialización
+1. Documentar proceso de despliegue
+2. Implementar sistema de plugins para extensibilidad
+3. Mejorar el manejo de errores y notificaciones
+4. Optimizar rendimiento y serialización
+5. Crear guía de seguridad
 
 ## Notas Adicionales
 - Las tareas están organizadas por prioridad y categoría
