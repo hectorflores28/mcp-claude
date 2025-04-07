@@ -124,6 +124,21 @@ async def health_check():
         }
     }
 
+@app.get("/api/mcp/status")
+async def mcp_status():
+    """
+    Endpoint de estado para la integración con Claude Desktop MCP
+    """
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "services": {
+            "claude": "available",
+            "filesystem": "available",
+            "logging": "available"
+        }
+    }
+
 if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",

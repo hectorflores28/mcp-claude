@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # API Keys
     # BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
+    API_KEY: str = os.getenv("API_KEY", "your-api-key-here")
     
     # Configuración del servidor
     HOST: str = os.getenv("HOST", "0.0.0.0")

@@ -16,7 +16,7 @@ def verify_api_key(api_key: str = Security(api_key_header)) -> str:
     """
     Verifica la API key proporcionada
     """
-    if api_key != settings.SECRET_KEY:
+    if api_key != settings.API_KEY:
         LogManager.log_error("security", f"API key inválida: {api_key[:8]}...")
         raise HTTPException(
             status_code=401,
