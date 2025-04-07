@@ -15,7 +15,7 @@
 | Versión | 1.1.0 (Beta) |
 | Estado | En desarrollo activo |
 | Última actualización | 7 de abril de 2025 |
-| Características implementadas | 80% |
+| Características implementadas | 85% |
 | Tests implementados | 60% |
 
 ## ✨ Características Principales
@@ -26,7 +26,7 @@
 - ✅ Caché distribuido con Redis
 - ✅ Logging avanzado con rotación de archivos
 - ✅ Autenticación JWT y API Key
-- ✅ Lista negra de tokens
+- ✅ Sistema de plugins para extensibilidad
 - ✅ Configuración para Claude Desktop
 - ✅ Tests unitarios y de integración
 
@@ -81,6 +81,8 @@ uvicorn app.main:app --reload
 | `LOG_DIR` | Directorio de logs | logs |
 | `LOG_MAX_BYTES` | Tamaño máximo de archivo de log | 10MB |
 | `LOG_BACKUP_COUNT` | Número de archivos de backup | 5 |
+| `PLUGINS_ENABLED` | Habilitar sistema de plugins | true |
+| `PLUGIN_DIR` | Directorio de plugins | plugins |
 
 ### Claude Desktop
 
@@ -99,6 +101,12 @@ uvicorn app.main:app --reload
 - `GET /api/mcp/status` - Estado del protocolo MCP
 - `POST /api/mcp/execute` - Ejecutar operación MCP
 - `GET /api/mcp/operations` - Obtener operaciones recientes
+
+### Plugins
+- `GET /api/v1/plugins` - Listar plugins disponibles
+- `GET /api/v1/plugins/{plugin_id}` - Obtener información de un plugin
+- `POST /api/v1/plugins/{plugin_id}/enable` - Habilitar un plugin
+- `POST /api/v1/plugins/{plugin_id}/disable` - Deshabilitar un plugin
 
 ## 🧪 Desarrollo
 
