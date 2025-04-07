@@ -15,7 +15,7 @@ Gracias por tu interés en contribuir al proyecto MCP-Claude. Este documento pro
 
 1. Clona el repositorio:
 ```bash
-git clone https://github.com/tu-usuario/mcp-claude.git
+git clone https://github.com/hectorflores28/mcp-claude.git
 cd mcp-claude
 ```
 

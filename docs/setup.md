@@ -19,7 +19,7 @@ pip install mcp-claude
 ### 2. Instalar desde el código fuente
 
 ```bash
-git clone https://github.com/tu-usuario/mcp-claude.git
+git clone https://github.com/hectorflores28/mcp-claude.git
 cd mcp-claude
 pip install -e .
 ```

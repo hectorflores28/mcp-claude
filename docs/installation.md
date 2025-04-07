@@ -19,7 +19,7 @@
 
 ```bash
 # Clonar el repositorio
-git clone https://github.com/tu-usuario/mcp-claude.git
+git clone https://github.com/hectorflores28/mcp-claude.git
 cd mcp-claude
 
 # Crear entorno virtual

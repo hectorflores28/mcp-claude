@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100.0-green.svg)](https://fastapi.tiangolo.com/)
 [![Redis](https://img.shields.io/badge/Redis-6.0+-red.svg)](https://redis.io/)
-[![Tests](https://img.shields.io/badge/tests-60%25-yellow.svg)](https://github.com/tu-usuario/mcp-claude/actions)
+[![Tests](https://img.shields.io/badge/tests-60%25-yellow.svg)](https://github.com/hectorflores28/mcp-claude/actions)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 > Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
@@ -13,12 +13,12 @@
 | Métrica | Valor |
 |---------|-------|
 | Versión | 1.1.0 (Beta) |
-| Estado | En desarrollo activo |
+| Estado | Listo para integración con Claude Desktop |
 | Última actualización | 7 de abril de 2025 |
-| Características implementadas | 90% |
+| Características implementadas | 95% |
 | Tests implementados | 60% |
 
-## ✨ Características Principales
+## ✨ Características Implementadas
 
 - ✅ Protocolo MCP completo (v1.1)
 - ✅ Sistema de recursos y herramientas
@@ -32,6 +32,9 @@
 - ✅ Sistema de blacklist de tokens
 - ✅ Métricas de rendimiento con Prometheus
 - ✅ Procesamiento en lote para operaciones múltiples
+- ✅ Cliente Claude con caché y reintentos
+- ✅ Optimización de servicios y endpoints
+- ✅ Validación de esquemas
 
 ## 🔄 Características Pendientes
 
@@ -51,7 +54,7 @@
 
 ```bash
 # Clonar repositorio
-git clone https://github.com/tu-usuario/mcp-claude.git
+git clone https://github.com/hectorflores28/mcp-claude.git
 cd mcp-claude
 
 # Crear entorno virtual
@@ -160,6 +163,13 @@ MIT
 Para más detalles, consulta nuestra [guía de contribución](CONTRIBUTING.md).
 
 ## 📝 Historial de Cambios
+
+### v1.1.2 (7 de abril de 2025)
+- Preparación para integración con Claude Desktop
+- Optimización del cliente Claude con caché y reintentos
+- Mejora de la validación de esquemas
+- Optimización de servicios y endpoints
+- Corrección de errores y mejoras de rendimiento
 
 ### v1.1.1 (7 de abril de 2025)
 - Optimización del sistema de caché con pool de conexiones
