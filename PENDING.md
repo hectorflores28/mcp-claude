@@ -78,11 +78,11 @@
 - [x] Implementar sistema de plugins para extensibilidad
 
 ## Próximos Pasos
-1. Implementar pruebas unitarias y de integración
-2. Crear guía de contribución y proceso de despliegue
-3. Mejorar el manejo de errores y notificaciones
-4. Optimizar rendimiento y serialización
-5. Implementar sistema de caché distribuido
+1. Crear guía de contribución y proceso de despliegue
+2. Mejorar el manejo de errores y notificaciones
+3. Optimizar rendimiento y serialización
+4. Implementar sistema de caché distribuido
+5. Implementar sistema de dependencias entre plugins
 
 ## Detalles de Implementación
 
@@ -96,10 +96,10 @@
 - [ ] Implementar sandbox para plugins
 
 ### Pruebas
-- [ ] Crear estructura de pruebas
-- [ ] Implementar pruebas unitarias para servicios core
-- [ ] Implementar pruebas de integración para API
-- [ ] Configurar CI/CD para ejecutar pruebas
+- [x] Crear estructura de pruebas
+- [x] Implementar pruebas unitarias para servicios core
+- [x] Implementar pruebas de integración para API
+- [x] Configurar CI/CD para ejecutar pruebas
 - [ ] Implementar pruebas de rendimiento
 
 ### Documentación

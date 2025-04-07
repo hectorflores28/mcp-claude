@@ -1,10 +1,18 @@
+"""
+Pruebas unitarias para el servicio MCP.
+
+Este módulo contiene las pruebas unitarias para el servicio MCP,
+incluyendo pruebas de caché, rate limiting y operaciones básicas.
+"""
+
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 from app.services.mcp_service import MCPService
 from app.schemas.mcp import MCPRequest, MCPResponse, MCPError, MCPStatus, MCPOperation
 from datetime import datetime
 from app.core.cache import RedisCache
 from app.core.logging import LogManager
+from app.core.plugins import plugin_manager
 
 @pytest.fixture
 def mcp_service():
@@ -140,76 +148,130 @@ class TestMCPService:
 
 @pytest.mark.asyncio
 async def test_get_status_with_cache(mcp_service):
-    """Prueba obtener el estado del MCP cuando está en caché"""
-    # Configurar mock
-    cached_status = {
-        "version": "1.1.0",
-        "features": ["feature1", "feature2"],
-        "resource_types": ["type1", "type2"],
-        "access_levels": ["level1", "level2"],
-        "tools": {
-            "tool1": {"param1": "value1"},
-            "tool2": {"param2": "value2"}
-        }
-    }
-    mcp_service.cache.get.return_value = cached_status
+    """
+    Prueba la obtención del estado con caché.
     
-    # Ejecutar prueba
-    result = await mcp_service.get_status()
-    
-    # Verificar resultados
-    assert result == cached_status
-    mcp_service.cache.get.assert_called_once_with("mcp:status")
-    mcp_service.logger.log_info.assert_called_once()
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar caché
+    with patch("app.services.mcp_service.redis_client") as mock_redis:
+        mock_redis.get.return_value = '{"status": "ok", "version": "1.0.0"}'
+        
+        # Obtener estado
+        status = await mcp_service.get_status()
+        
+        # Verificar resultado
+        assert status["status"] == "ok"
+        assert status["version"] == "1.0.0"
+        
+        # Verificar que se usó el caché
+        mock_redis.get.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_get_status_without_cache(mcp_service):
-    """Prueba obtener el estado del MCP cuando no está en caché"""
-    # Configurar mock
-    mcp_service.cache.get.return_value = None
+    """
+    Prueba la obtención del estado sin caché.
     
-    # Ejecutar prueba
-    result = await mcp_service.get_status()
-    
-    # Verificar resultados
-    assert result is not None
-    assert "version" in result
-    assert "features" in result
-    assert "resource_types" in result
-    assert "access_levels" in result
-    assert "tools" in result
-    mcp_service.cache.get.assert_called_once_with("mcp:status")
-    mcp_service.cache.set.assert_called_once()
-    mcp_service.logger.log_info.assert_called()
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar caché vacío
+    with patch("app.services.mcp_service.redis_client") as mock_redis:
+        mock_redis.get.return_value = None
+        
+        # Obtener estado
+        status = await mcp_service.get_status()
+        
+        # Verificar resultado
+        assert status["status"] == "ok"
+        assert "version" in status
+        
+        # Verificar que se intentó usar el caché
+        mock_redis.get.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_check_rate_limit(mcp_service):
-    """Prueba la verificación de límites de tasa"""
-    # Configurar mock
-    mcp_service.cache.get.return_value = None
+    """
+    Prueba la verificación del rate limit.
     
-    # Ejecutar prueba
-    result = await mcp_service._check_rate_limit("test_key", "GET", {})
-    
-    # Verificar resultados
-    assert result is True
-    mcp_service.cache.get.assert_called_once()
-    mcp_service.cache.set.assert_called_once()
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar Redis
+    with patch("app.services.mcp_service.redis_client") as mock_redis:
+        mock_redis.incr.return_value = 1
+        
+        # Verificar rate limit
+        result = await mcp_service.check_rate_limit("test_key")
+        
+        # Verificar resultado
+        assert result is True
+        mock_redis.incr.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_check_rate_limit_exceeded(mcp_service):
-    """Prueba cuando se excede el límite de tasa"""
-    # Configurar mock
-    mcp_service.cache.get.return_value = {
-        "count": 101,
-        "window_start": 1234567890
-    }
+    """
+    Prueba la verificación del rate limit cuando se excede.
     
-    # Ejecutar prueba
-    with pytest.raises(Exception) as exc_info:
-        await mcp_service._check_rate_limit("test_key", "GET", {})
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar Redis
+    with patch("app.services.mcp_service.redis_client") as mock_redis:
+        mock_redis.incr.return_value = 101  # Excede el límite
+        
+        # Verificar rate limit
+        result = await mcp_service.check_rate_limit("test_key")
+        
+        # Verificar resultado
+        assert result is False
+        mock_redis.incr.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_execute_operation_with_plugins(mcp_service):
+    """
+    Prueba la ejecución de operaciones con plugins.
     
-    # Verificar resultados
-    assert "Rate limit exceeded" in str(exc_info.value)
-    mcp_service.cache.get.assert_called_once()
-    mcp_service.logger.log_warning.assert_called_once() 
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar plugin
+    mock_plugin = Mock()
+    mock_plugin.enabled = True
+    mock_plugin.before_execute = Mock(return_value=None)
+    mock_plugin.after_execute = Mock(return_value=None)
+    
+    plugin_manager.plugins["test_plugin"] = mock_plugin
+    
+    # Ejecutar operación
+    result = await mcp_service.execute_operation("test_op", {"param": "value"})
+    
+    # Verificar que se llamaron los hooks
+    mock_plugin.before_execute.assert_called_once()
+    mock_plugin.after_execute.assert_called_once()
+    
+    # Verificar resultado
+    assert result is not None
+
+@pytest.mark.asyncio
+async def test_execute_operation_with_error(mcp_service):
+    """
+    Prueba la ejecución de operaciones con error.
+    
+    Args:
+        mcp_service: Fixture del servicio MCP
+    """
+    # Configurar plugin
+    mock_plugin = Mock()
+    mock_plugin.enabled = True
+    mock_plugin.on_error = Mock(return_value=None)
+    
+    plugin_manager.plugins["test_plugin"] = mock_plugin
+    
+    # Ejecutar operación que genera error
+    with pytest.raises(Exception):
+        await mcp_service.execute_operation("invalid_op", {})
+    
+    # Verificar que se llamó el hook de error
+    mock_plugin.on_error.assert_called_once() 
