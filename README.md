@@ -2,28 +2,30 @@
 
 Servidor MCP (Model Context Protocol) para Claude con integración de herramientas externas.
 
-## Características principales
+## 🚀 Características Principales
 
-- ✅ Integración con Claude API
-- ✅ Búsqueda web con Brave Search API
-- ✅ Sistema de archivos local para gestión de documentos
-- ✅ Soporte para creación y edición de archivos Markdown
-- ✅ API RESTful basada en FastAPI
-- ✅ Documentación automática con Swagger/OpenAPI
-- ✅ Sistema de logging en Markdown
-- ✅ Manejo de errores y validaciones
-- ✅ Autenticación mediante API keys
-- ✅ Protocolo JSON-RPC 2.0 para comunicación
-- ✅ Soporte para Docker y Docker Compose
-- ✅ Health checks para monitoreo
-- ✅ Volúmenes persistentes para datos y logs
-- ✅ Monitoreo de recursos del sistema
-- ✅ Endpoints para gestión de prompts
-- ✅ Sistema de logging avanzado
+- 🤖 Integración con Claude API (Claude 3 Opus, Sonnet, Haiku)
+- 🔍 Búsqueda web con Brave Search API
+- 📁 Sistema de archivos local para gestión de documentos
+- 📝 Soporte para creación y edición de archivos Markdown
+- 🌐 API RESTful basada en FastAPI
+- 📚 Documentación automática con Swagger/OpenAPI
+- 📊 Sistema de logging en Markdown
+- ⚠️ Manejo de errores y validaciones
+- 🔐 Autenticación mediante API keys
+- 🔄 Protocolo JSON-RPC 2.0 para comunicación
+- 🐳 Soporte para Docker y Docker Compose
+- 💓 Health checks para monitoreo
+- 💾 Volúmenes persistentes para datos y logs
+- 📈 Monitoreo de recursos del sistema
+- 🎯 Endpoints para gestión de prompts
+- 📊 Sistema de logging avanzado
+- 🔄 Sistema de caché con Redis
+- 📊 Métricas con Prometheus
 
-## Estado Actual del Proyecto
+## 📊 Estado Actual del Proyecto
 
-### Implementado ✅
+### ✅ Implementado
 - Estructura base del proyecto
 - Esquemas Pydantic para todas las entidades
 - Sistema de logging en Markdown
@@ -36,6 +38,8 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
 - Plantillas de prompts para Claude
 - Configuración de variables de entorno
 - Sistema de seguridad con API keys
+- Sistema de caché con Redis
+- Sistema de métricas con Prometheus
 - Servicios principales:
   - BraveSearch: Búsqueda web con análisis de resultados
   - ClaudeService: Generación y análisis de contenido
@@ -49,6 +53,7 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
   - `/api/prompts`: Gestión de plantillas de prompts
   - `/api/logs`: Monitoreo de operaciones
   - `/api/health`: Monitoreo de salud del sistema
+  - `/api/metrics`: Métricas del sistema
 - Configuración Docker:
   - Dockerfile para producción
   - Docker Compose para desarrollo y producción
@@ -63,23 +68,24 @@ Servidor MCP (Model Context Protocol) para Claude con integración de herramient
   - Verificación de salud de servicios
   - Monitoreo de recursos (CPU, memoria, disco)
   - Estadísticas de uso
+  - Métricas de Prometheus
 
-### En Desarrollo 🚧
+### 🚧 En Desarrollo
 - Tests unitarios y de integración
 - Mejoras en el sistema de logging
 - Optimización de rendimiento
 - Documentación detallada de uso
 - Ejemplos de uso para cada funcionalidad principal
-
-### Pendiente 📋
+- Sistema de plugins
 - Interfaz web de administración
-- Sistema de caché
-- Monitoreo y métricas avanzadas
+
+### 📋 Pendiente
 - Integración con más modelos de Claude
 - Soporte para más formatos de archivo
 - Sistema de plugins
+- Interfaz web de administración
 
-## Estructura del Proyecto
+## 📁 Estructura del Proyecto
 
 ```
 mcp-claude/
@@ -99,6 +105,8 @@ mcp-claude/
 │   │   ├── security.py
 │   │   ├── logging.py
 │   │   ├── prompts.py
+│   │   ├── cache.py
+│   │   ├── metrics.py
 │   │   └── markdown_logger.py
 │   ├── services/
 │   │   ├── brave_search.py
@@ -118,7 +126,7 @@ mcp-claude/
 └── docker-compose.yml
 ```
 
-## Requisitos
+## 📋 Requisitos
 
 - Python 3.9+
 - FastAPI
@@ -130,11 +138,18 @@ mcp-claude/
 - Aiofiles
 - Pydantic
 - Psutil
+- Redis
+- Prometheus Client
 - Docker y Docker Compose (opcional)
 
-## Configuración
+## ⚙️ Configuración
 
-1. Clonar el repositorio
+1. Clonar el repositorio:
+```bash
+git clone https://github.com/tu-usuario/mcp-claude.git
+cd mcp-claude
+```
+
 2. Crear entorno virtual:
 ```bash
 python -m venv venv
@@ -152,7 +167,7 @@ cp .env.example .env
 # Editar .env con tus claves API
 ```
 
-## Uso
+## 🚀 Uso
 
 ### Desarrollo Local
 
@@ -183,7 +198,17 @@ http://localhost:8000/docs  # Producción
 http://localhost:8001/docs  # Desarrollo
 ```
 
-## Endpoints Disponibles
+## 📚 Documentación
+
+Para una documentación más detallada, consulta:
+
+- [Guía de Instalación](docs/setup.md)
+- [Ejemplos de Uso](docs/examples.md)
+- [Casos de Uso](docs/use_cases.md)
+- [Solución de Problemas](docs/troubleshooting.md)
+- [Comparación con Gemini](docs/comparison.md)
+
+## 🔄 Endpoints Disponibles
 
 ### Búsqueda Web
 - `POST /api/search`: Realiza búsquedas web utilizando Brave Search API
@@ -219,10 +244,14 @@ http://localhost:8001/docs  # Desarrollo
 - `GET /api/health/services`: Verifica el estado de los servicios individuales
 - `GET /api/health/resources`: Verifica el uso de recursos del sistema
 
+### Métricas
+- `GET /api/metrics`: Obtiene métricas del sistema
+- `GET /metrics`: Endpoint de Prometheus
+
 ### Protocolo JSON-RPC 2.0
 - `POST /mcp/execute`: Endpoint principal para ejecutar herramientas MCP según el protocolo JSON-RPC 2.0
 
-## Ejemplo de Uso del Protocolo JSON-RPC 2.0
+## 📝 Ejemplo de Uso del Protocolo JSON-RPC 2.0
 
 ```json
 {
@@ -240,32 +269,40 @@ http://localhost:8001/docs  # Desarrollo
 }
 ```
 
-## Desarrollo
+## 👩‍💻 Desarrollo
 
 - Los endpoints principales están en `app/api/endpoints/`
 - La lógica de negocio en `app/services/`
 - Esquemas y modelos en `app/schemas/`
 - Configuración y utilidades en `app/core/`
 
-## Seguridad
+## 🔒 Seguridad
 
 - Autenticación mediante API keys
-- Validación de entrada en todos los endpoints
-- Logging de operaciones críticas
-- Sanitización de operaciones de filesystem
-- Prevención de directory traversal
 - Validación de nombres de archivo
-- Restricción de extensiones permitidas
-- Límite de tamaño de archivo
+- Prevención de directory traversal
+- Sanitización de entradas
+- Logging de operaciones críticas
+- Rate limiting
+- CORS configurado
+- Headers de seguridad
 
-## Contribución
+## 📊 Monitoreo
+
+- Health checks
+- Métricas de Prometheus
+- Logging en Markdown
+- Monitoreo de recursos
+- Estadísticas de uso
+
+## 🤝 Contribución
 
 1. Fork el repositorio
-2. Crear rama feature (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add AmazingFeature'`)
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
 4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir Pull Request
+5. Abre un Pull Request
 
-## Licencia
+## 📄 Licencia
 
-MIT
+Este proyecto está bajo la Licencia MIT. Ver el archivo `LICENSE` para más detalles.
