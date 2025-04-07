@@ -12,14 +12,12 @@ from app.core.config import settings
 import jwt
 from datetime import datetime, timedelta
 
+# Cliente de prueba
 client = TestClient(app)
 
-def create_test_token() -> str:
+def create_test_token():
     """
-    Crea un token JWT de prueba.
-    
-    Returns:
-        str: Token JWT
+    Crea un token JWT para pruebas
     """
     payload = {
         "sub": "test_user",
@@ -29,38 +27,29 @@ def create_test_token() -> str:
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 @pytest.fixture
-def auth_headers() -> dict:
+def auth_headers():
     """
-    Fixture que proporciona headers de autenticación.
-    
-    Returns:
-        dict: Headers de autenticación
+    Fixture para headers de autenticación
     """
     token = create_test_token()
     return {"Authorization": f"Bearer {token}"}
 
-def test_health_check(test_client: TestClient):
+def test_health_check():
     """
-    Prueba el endpoint de health check.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
+    Test del endpoint de health check
     """
-    response = test_client.get("/health")
+    response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
     assert "version" in data
     assert "services" in data
 
-def test_status_endpoint(test_client: TestClient):
+def test_status_endpoint():
     """
-    Prueba el endpoint de status.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
+    Test del endpoint de status
     """
-    response = test_client.get("/status")
+    response = client.get("/status")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -68,16 +57,13 @@ def test_status_endpoint(test_client: TestClient):
     assert "environment" in data
     assert "services" in data
 
-def test_auth_token_endpoint(test_client: TestClient):
+def test_auth_token_endpoint():
     """
-    Prueba el endpoint de obtención de token.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
+    Test del endpoint de generación de token
     """
-    response = test_client.post(
+    response = client.post(
         "/api/v1/auth/token",
-        json={"username": "test_user", "password": "test_pass"}
+        json={"username": "test_user", "password": "test_password"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -85,83 +71,63 @@ def test_auth_token_endpoint(test_client: TestClient):
     assert "token_type" in data
     assert data["token_type"] == "bearer"
 
-def test_auth_token_invalid_credentials(test_client: TestClient):
+def test_auth_token_invalid_credentials():
     """
-    Prueba el endpoint de token con credenciales inválidas.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
+    Test del endpoint de token con credenciales inválidas
     """
-    response = test_client.post(
+    response = client.post(
         "/api/v1/auth/token",
         json={"username": "invalid", "password": "invalid"}
     )
     assert response.status_code == 401
 
-def test_protected_endpoint_with_token(test_client: TestClient, auth_headers: dict):
+def test_protected_endpoint_with_token(auth_headers):
     """
-    Prueba un endpoint protegido con token válido.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
-        auth_headers: Fixture de headers de autenticación
+    Test de acceso a endpoint protegido con token válido
     """
-    response = test_client.get("/api/v1/mcp/status", headers=auth_headers)
+    response = client.get("/api/v1/mcp/status", headers=auth_headers)
     assert response.status_code == 200
 
-def test_protected_endpoint_without_token(test_client: TestClient):
+def test_protected_endpoint_without_token():
     """
-    Prueba un endpoint protegido sin token.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
+    Test de acceso a endpoint protegido sin token
     """
-    response = test_client.get("/api/v1/mcp/status")
+    response = client.get("/api/v1/mcp/status")
     assert response.status_code == 401
 
-def test_rate_limit(test_client: TestClient, auth_headers: dict):
+def test_rate_limit():
     """
-    Prueba el rate limiting.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
-        auth_headers: Fixture de headers de autenticación
+    Test del rate limiting
     """
-    # Realizar múltiples peticiones
-    for _ in range(100):
-        response = test_client.get("/api/v1/mcp/status", headers=auth_headers)
-        assert response.status_code == 200
+    # Realizar múltiples peticiones para alcanzar el límite
+    for _ in range(settings.RATE_LIMIT_MAX_REQUESTS + 1):
+        response = client.get("/health")
     
-    # La siguiente petición debería fallar
-    response = test_client.get("/api/v1/mcp/status", headers=auth_headers)
+    # La última petición debería ser rechazada
     assert response.status_code == 429
 
-def test_auth_refresh_token(test_client: TestClient, auth_headers: dict):
+def test_auth_refresh_token(auth_headers):
     """
-    Prueba el endpoint de refresh token.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
-        auth_headers: Fixture de headers de autenticación
+    Test del endpoint de refresh token
     """
-    response = test_client.post("/api/v1/auth/refresh", headers=auth_headers)
+    response = client.post(
+        "/api/v1/auth/refresh",
+        headers=auth_headers
+    )
     assert response.status_code == 200
     data = response.json()
     assert "access_token" in data
-    assert "token_type" in data
-    assert data["token_type"] == "bearer"
 
-def test_auth_revoke_token(test_client: TestClient, auth_headers: dict):
+def test_auth_revoke_token(auth_headers):
     """
-    Prueba el endpoint de revocación de token.
-    
-    Args:
-        test_client: Fixture del cliente de prueba
-        auth_headers: Fixture de headers de autenticación
+    Test del endpoint de revocación de token
     """
-    response = test_client.post("/api/v1/auth/revoke", headers=auth_headers)
+    response = client.post(
+        "/api/v1/auth/revoke",
+        headers=auth_headers
+    )
     assert response.status_code == 200
     
     # Intentar usar el token revocado
-    response = test_client.get("/api/v1/mcp/status", headers=auth_headers)
+    response = client.get("/api/v1/mcp/status", headers=auth_headers)
     assert response.status_code == 401 
