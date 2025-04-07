@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
+import logging
 
 from app.api.endpoints import (
     # search_router,
@@ -179,9 +180,19 @@ async def mcp_status():
     return response_data
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
-    ) 
+    # Configurar logging antes de iniciar el servidor
+    LogManager.setup_logger()
+    logger = logging.getLogger("mcp_claude")
+    logger.info(f"Iniciando servidor en {settings.HOST}:{settings.PORT}")
+    
+    try:
+        uvicorn.run(
+            "app.main:app",
+            host=settings.HOST,
+            port=settings.PORT,
+            reload=settings.DEBUG,
+            log_level="info"
+        )
+    except Exception as e:
+        logger.error(f"Error al iniciar el servidor: {str(e)}")
+        raise 

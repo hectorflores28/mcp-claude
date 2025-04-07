@@ -9,12 +9,16 @@ import json
 import time
 from pathlib import Path
 
+# Asegurar que el directorio de logs existe
+log_dir = Path(settings.LOG_DIR)
+log_dir.mkdir(exist_ok=True, parents=True)
+
 # Configurar logging básico
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(settings.LOG_DIR / "app.log"),
+        logging.FileHandler(log_dir / "app.log", mode='a', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -54,19 +58,15 @@ class LogManager:
     def __init__(self):
         if not LogManager._initialized:
             self.logger = logging.getLogger("mcp_claude")
-            self.logger.setLevel(logging.INFO)
+            self.logger.setLevel(getattr(logging, settings.LOG_LEVEL))
             LogManager._initialized = True
     
     @classmethod
     def setup_logger(cls) -> None:
         """Configura el sistema de logs"""
-        # Crear directorio de logs si no existe
-        log_path = Path(settings.LOG_DIR)
-        log_path.mkdir(exist_ok=True, parents=True)
-        
         # Configurar logger
         logger = logging.getLogger("mcp_claude")
-        logger.setLevel(logging.INFO)
+        logger.setLevel(getattr(logging, settings.LOG_LEVEL))
         
         # Limpiar handlers existentes
         for handler in logger.handlers[:]:
@@ -74,7 +74,9 @@ class LogManager:
         
         # Handler para archivo
         file_handler = logging.FileHandler(
-            log_path / "app.log"
+            log_dir / "app.log",
+            mode='a',
+            encoding='utf-8'
         )
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -90,6 +92,8 @@ class LogManager:
         
         # Registrar inicio
         logger.info("Sistema de logging inicializado")
+        logger.info(f"Directorio de logs: {log_dir.absolute()}")
+        logger.info(f"Nivel de logging: {settings.LOG_LEVEL}")
     
     @classmethod
     def log_api_request(cls, method: str, path: str, data: Optional[Dict[str, Any]] = None) -> None:
