@@ -1,10 +1,270 @@
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union
 import json
 import hashlib
 from datetime import datetime, timedelta
 import redis
 from app.core.config import settings
 from app.core.logging import LogManager
+import time
+from functools import wraps
+import asyncio
+
+class CacheBackend:
+    """Interfaz base para backends de caché"""
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Obtiene un valor de la caché"""
+        raise NotImplementedError
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Almacena un valor en la caché"""
+        raise NotImplementedError
+    
+    def delete(self, key: str) -> bool:
+        """Elimina un valor de la caché"""
+        raise NotImplementedError
+    
+    def clear(self) -> bool:
+        """Limpia toda la caché"""
+        raise NotImplementedError
+
+class InMemoryCache(CacheBackend):
+    """Backend de caché en memoria"""
+    
+    def __init__(self):
+        self._cache: Dict[str, Dict[str, Any]] = {}
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Obtiene un valor de la caché en memoria"""
+        if key not in self._cache:
+            return None
+        
+        cache_entry = self._cache[key]
+        
+        # Verificar si ha expirado
+        if cache_entry["expires_at"] and time.time() > cache_entry["expires_at"]:
+            del self._cache[key]
+            return None
+        
+        return cache_entry["value"]
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Almacena un valor en la caché en memoria"""
+        try:
+            expires_at = time.time() + ttl if ttl else None
+            self._cache[key] = {
+                "value": value,
+                "expires_at": expires_at
+            }
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al almacenar en caché: {str(e)}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """Elimina un valor de la caché en memoria"""
+        try:
+            if key in self._cache:
+                del self._cache[key]
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al eliminar de caché: {str(e)}")
+            return False
+    
+    def clear(self) -> bool:
+        """Limpia toda la caché en memoria"""
+        try:
+            self._cache.clear()
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al limpiar caché: {str(e)}")
+            return False
+
+class FileCache(CacheBackend):
+    """Backend de caché en archivos"""
+    
+    def __init__(self, cache_dir: str = "cache"):
+        import os
+        self.cache_dir = cache_dir
+        os.makedirs(cache_dir, exist_ok=True)
+    
+    def _get_cache_path(self, key: str) -> str:
+        """Obtiene la ruta del archivo de caché para una clave"""
+        import os
+        # Usar hash para evitar problemas con caracteres especiales en la clave
+        key_hash = hashlib.md5(key.encode()).hexdigest()
+        return os.path.join(self.cache_dir, f"{key_hash}.json")
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Obtiene un valor de la caché en archivo"""
+        import os
+        cache_path = self._get_cache_path(key)
+        
+        if not os.path.exists(cache_path):
+            return None
+        
+        try:
+            with open(cache_path, "r") as f:
+                cache_entry = json.load(f)
+            
+            # Verificar si ha expirado
+            if cache_entry["expires_at"] and time.time() > cache_entry["expires_at"]:
+                os.remove(cache_path)
+                return None
+            
+            return cache_entry["value"]
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al leer de caché: {str(e)}")
+            return None
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Almacena un valor en la caché en archivo"""
+        import os
+        cache_path = self._get_cache_path(key)
+        
+        try:
+            expires_at = time.time() + ttl if ttl else None
+            cache_entry = {
+                "value": value,
+                "expires_at": expires_at
+            }
+            
+            with open(cache_path, "w") as f:
+                json.dump(cache_entry, f)
+            
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al escribir en caché: {str(e)}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """Elimina un valor de la caché en archivo"""
+        import os
+        cache_path = self._get_cache_path(key)
+        
+        try:
+            if os.path.exists(cache_path):
+                os.remove(cache_path)
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al eliminar de caché: {str(e)}")
+            return False
+    
+    def clear(self) -> bool:
+        """Limpia toda la caché en archivo"""
+        import os
+        import glob
+        
+        try:
+            for cache_file in glob.glob(os.path.join(self.cache_dir, "*.json")):
+                os.remove(cache_file)
+            return True
+        except Exception as e:
+            LogManager.log_error("CACHE_ERROR", f"Error al limpiar caché: {str(e)}")
+            return False
+
+class CacheManager:
+    """Gestor de caché para MCP-Claude"""
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not CacheManager._initialized:
+            # Por defecto usar caché en memoria
+            self.backend = InMemoryCache()
+            CacheManager._initialized = True
+    
+    def set_backend(self, backend: CacheBackend) -> None:
+        """Establece el backend de caché a usar"""
+        self.backend = backend
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Obtiene un valor de la caché"""
+        return self.backend.get(key)
+    
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Almacena un valor en la caché"""
+        return self.backend.set(key, value, ttl)
+    
+    def delete(self, key: str) -> bool:
+        """Elimina un valor de la caché"""
+        return self.backend.delete(key)
+    
+    def clear(self) -> bool:
+        """Limpia toda la caché"""
+        return self.backend.clear()
+
+def cached(ttl: Optional[int] = 3600):
+    """
+    Decorador para cachear resultados de funciones
+    
+    Args:
+        ttl: Tiempo de vida en segundos (por defecto 1 hora)
+    """
+    def decorator(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            # Crear clave única para la función y sus argumentos
+            key_parts = [func.__name__]
+            key_parts.extend([str(arg) for arg in args])
+            key_parts.extend([f"{k}:{v}" for k, v in sorted(kwargs.items())])
+            cache_key = hashlib.md5(":".join(key_parts).encode()).hexdigest()
+            
+            # Intentar obtener de caché
+            cache_manager = CacheManager()
+            cached_result = cache_manager.get(cache_key)
+            
+            if cached_result is not None:
+                LogManager.log_info(f"Cache hit for {func.__name__}")
+                return cached_result
+            
+            # Si no está en caché, ejecutar función
+            LogManager.log_info(f"Cache miss for {func.__name__}")
+            result = await func(*args, **kwargs)
+            
+            # Almacenar en caché
+            cache_manager.set(cache_key, result, ttl)
+            
+            return result
+        
+        @wraps(func)
+        def sync_wrapper(*args, **kwargs):
+            # Crear clave única para la función y sus argumentos
+            key_parts = [func.__name__]
+            key_parts.extend([str(arg) for arg in args])
+            key_parts.extend([f"{k}:{v}" for k, v in sorted(kwargs.items())])
+            cache_key = hashlib.md5(":".join(key_parts).encode()).hexdigest()
+            
+            # Intentar obtener de caché
+            cache_manager = CacheManager()
+            cached_result = cache_manager.get(cache_key)
+            
+            if cached_result is not None:
+                LogManager.log_info(f"Cache hit for {func.__name__}")
+                return cached_result
+            
+            # Si no está en caché, ejecutar función
+            LogManager.log_info(f"Cache miss for {func.__name__}")
+            result = func(*args, **kwargs)
+            
+            # Almacenar en caché
+            cache_manager.set(cache_key, result, ttl)
+            
+            return result
+        
+        # Devolver el wrapper apropiado según si la función es asíncrona o no
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            return sync_wrapper
+    
+    return decorator
 
 class ClaudeCache:
     """Sistema de caché para Claude con soporte para respuestas de IA y resultados de búsqueda"""
