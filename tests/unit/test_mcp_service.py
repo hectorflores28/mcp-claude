@@ -3,10 +3,18 @@ from unittest.mock import patch, MagicMock
 from app.services.mcp_service import MCPService
 from app.schemas.mcp import MCPRequest, MCPResponse, MCPError, MCPStatus, MCPOperation
 from datetime import datetime
+from app.core.cache import RedisCache
+from app.core.logging import LogManager
 
 @pytest.fixture
 def mcp_service():
-    return MCPService()
+    """Fixture para crear una instancia de MCPService con dependencias mockeadas"""
+    with patch('app.services.mcp_service.RedisCache') as mock_cache:
+        with patch('app.services.mcp_service.LogManager') as mock_logger:
+            service = MCPService()
+            service.cache = mock_cache.return_value
+            service.logger = mock_logger
+            yield service
 
 @pytest.fixture
 def valid_request():
@@ -128,4 +136,80 @@ class TestMCPService:
         operations = mcp_service.get_recent_operations(limit=1)
         
         assert len(operations) == 1
-        assert operations[0].method == "execute"  # La más reciente 
+        assert operations[0].method == "execute"  # La más reciente
+
+@pytest.mark.asyncio
+async def test_get_status_with_cache(mcp_service):
+    """Prueba obtener el estado del MCP cuando está en caché"""
+    # Configurar mock
+    cached_status = {
+        "version": "1.1.0",
+        "features": ["feature1", "feature2"],
+        "resource_types": ["type1", "type2"],
+        "access_levels": ["level1", "level2"],
+        "tools": {
+            "tool1": {"param1": "value1"},
+            "tool2": {"param2": "value2"}
+        }
+    }
+    mcp_service.cache.get.return_value = cached_status
+    
+    # Ejecutar prueba
+    result = await mcp_service.get_status()
+    
+    # Verificar resultados
+    assert result == cached_status
+    mcp_service.cache.get.assert_called_once_with("mcp:status")
+    mcp_service.logger.log_info.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_get_status_without_cache(mcp_service):
+    """Prueba obtener el estado del MCP cuando no está en caché"""
+    # Configurar mock
+    mcp_service.cache.get.return_value = None
+    
+    # Ejecutar prueba
+    result = await mcp_service.get_status()
+    
+    # Verificar resultados
+    assert result is not None
+    assert "version" in result
+    assert "features" in result
+    assert "resource_types" in result
+    assert "access_levels" in result
+    assert "tools" in result
+    mcp_service.cache.get.assert_called_once_with("mcp:status")
+    mcp_service.cache.set.assert_called_once()
+    mcp_service.logger.log_info.assert_called()
+
+@pytest.mark.asyncio
+async def test_check_rate_limit(mcp_service):
+    """Prueba la verificación de límites de tasa"""
+    # Configurar mock
+    mcp_service.cache.get.return_value = None
+    
+    # Ejecutar prueba
+    result = await mcp_service._check_rate_limit("test_key", "GET", {})
+    
+    # Verificar resultados
+    assert result is True
+    mcp_service.cache.get.assert_called_once()
+    mcp_service.cache.set.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_check_rate_limit_exceeded(mcp_service):
+    """Prueba cuando se excede el límite de tasa"""
+    # Configurar mock
+    mcp_service.cache.get.return_value = {
+        "count": 101,
+        "window_start": 1234567890
+    }
+    
+    # Ejecutar prueba
+    with pytest.raises(Exception) as exc_info:
+        await mcp_service._check_rate_limit("test_key", "GET", {})
+    
+    # Verificar resultados
+    assert "Rate limit exceeded" in str(exc_info.value)
+    mcp_service.cache.get.assert_called_once()
+    mcp_service.logger.log_warning.assert_called_once() 

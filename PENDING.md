@@ -30,8 +30,8 @@
 - [ ] Crear guía de seguridad
 
 ### Testing
-- [ ] Implementar pruebas unitarias
-- [ ] Implementar pruebas de integración
+- [x] Implementar pruebas unitarias
+- [x] Implementar pruebas de integración
 - [ ] Configurar CI/CD
 - [ ] Implementar pruebas de rendimiento
 
@@ -72,9 +72,10 @@
 - [x] Implementar lista negra de tokens
 - [x] Mejorar sistema de logging con rotación de archivos
 - [x] Centralizar configuración del proyecto
+- [x] Implementar pruebas unitarias y de integración
 
 ## Próximos Pasos
-1. Implementar pruebas unitarias y de integración
+1. Configurar CI/CD para automatizar pruebas
 2. Crear guía de contribución y proceso de despliegue
 3. Implementar sistema de plugins para extensibilidad
 4. Mejorar el manejo de errores y notificaciones
