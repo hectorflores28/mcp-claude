@@ -1,172 +1,164 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any
-from app.core.security import verify_api_key
-from app.services.claude_service import ClaudeService
-from app.schemas.claude import (
-    ClaudeRequest,
-    ClaudeResponse,
-    ClaudeAnalysis
-)
+from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Dict, Any, Optional
+import time
+from app.core.config import settings
 from app.core.logging import LogManager
-from app.core.markdown_logger import MarkdownLogger
+from app.core.security import get_current_user
+from app.core.metrics import MetricsCollector
+from app.services.claude_service import get_claude_service
+from app.schemas.claude import ClaudeRequest, ClaudeResponse, ClaudeAnalysis
 
 router = APIRouter(prefix="/claude", tags=["claude"])
-claude_service = ClaudeService()
-markdown_logger = MarkdownLogger()
+logger = LogManager.get_logger("claude_endpoints")
+metrics = MetricsCollector()
 
 @router.get("/status")
-async def claude_status(
-    api_key: str = Depends(verify_api_key)
-):
+async def claude_status() -> Dict[str, Any]:
     """
-    Verifica el estado del servicio de Claude.
+    Verifica el estado del servicio Claude
+    """
+    start_time = time.time()
     
-    Args:
-        api_key: API key para autenticación
+    try:
+        # Obtener estado del servicio
+        service = get_claude_service()
+        status = await service.get_status()
         
-    Returns:
-        Dict: Estado del servicio
-    """
-    return {
-        "status": "ok",
-        "model": claude_service.model,
-        "max_tokens": claude_service.max_tokens,
-        "temperature": claude_service.temperature
-    }
+        # Registrar métricas
+        await metrics.record_api_call(
+            endpoint="claude_status",
+            method="GET",
+            status_code=200,
+            response_time=time.time() - start_time
+        )
+        
+        return status
+        
+    except Exception as e:
+        # Registrar error en métricas
+        await metrics.record_api_call(
+            endpoint="claude_status",
+            method="GET",
+            status_code=500,
+            response_time=time.time() - start_time
+        )
+        
+        logger.error(f"Error al obtener estado de Claude: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al obtener estado de Claude"
+        )
 
-@router.post("/mcp/completion", response_model=ClaudeResponse)
+@router.post("/mcp_completion", response_model=ClaudeResponse)
 async def mcp_completion(
     request: ClaudeRequest,
-    api_key: str = Depends(verify_api_key)
-):
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> ClaudeResponse:
     """
-    Endpoint específico para la integración con Claude Desktop MCP.
+    Procesa una solicitud de completado usando Claude API
     
     Args:
         request: Solicitud de completado
-        api_key: API key para autenticación
+        current_user: Usuario actual autenticado
         
     Returns:
-        ClaudeResponse: Respuesta de Claude
+        ClaudeResponse con la respuesta generada
     """
+    start_time = time.time()
+    
     try:
-        # Registrar la operación
-        markdown_logger.log_claude_operation(
-            operation="mcp_completion",
-            details={
-                "text": request.text[:100] + "..."
-            }
+        # Verificar API key
+        if not current_user.get("api_key"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key no proporcionada"
+            )
+        
+        # Procesar solicitud
+        service = get_claude_service()
+        response = await service.mcp_completion(request)
+        
+        # Registrar métricas
+        await metrics.record_api_call(
+            endpoint="mcp_completion",
+            method="POST",
+            status_code=200,
+            response_time=time.time() - start_time
         )
         
-        # Realizar completado
-        response = await claude_service.mcp_completion(
-            prompt=request.text,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
+        return response
         
-        return ClaudeResponse(
-            content=response["content"],
-            tokens_used=response["tokens_used"],
-            model=response["model"]
-        )
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        LogManager.log_error("claude", str(e))
-        raise HTTPException(
+        # Registrar error en métricas
+        await metrics.record_api_call(
+            endpoint="mcp_completion",
+            method="POST",
             status_code=500,
-            detail=f"Error al procesar la solicitud: {str(e)}"
+            response_time=time.time() - start_time
+        )
+        
+        logger.error(f"Error al procesar solicitud de completado: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al procesar solicitud de completado"
         )
 
-@router.post("/analyze", response_model=ClaudeResponse)
+@router.post("/analyze", response_model=ClaudeAnalysis)
 async def analyze_text(
-    request: ClaudeRequest,
-    api_key: str = Depends(verify_api_key)
-):
+    text: str,
+    analysis_type: str = "general",
+    current_user: Dict[str, Any] = Depends(get_current_user)
+) -> ClaudeAnalysis:
     """
-    Analiza texto usando Claude.
+    Analiza un texto usando Claude API
     
     Args:
-        request: Solicitud de análisis
-        api_key: API key para autenticación
+        text: Texto a analizar
+        analysis_type: Tipo de análisis a realizar
+        current_user: Usuario actual autenticado
         
     Returns:
-        ClaudeResponse: Resultado del análisis
+        ClaudeAnalysis con el resultado del análisis
     """
-    try:
-        # Registrar la operación
-        markdown_logger.log_claude_operation(
-            operation="analyze",
-            details={
-                "text": request.text[:100] + "...",
-                "analysis_type": request.analysis_type
-            }
-        )
-        
-        # Realizar análisis
-        response = await claude_service.analyze_text(
-            text=request.text,
-            analysis_type=request.analysis_type,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
-        
-        return ClaudeResponse(
-            content=response.content,
-            tokens_used=response.tokens_used,
-            model=response.model,
-            analysis=response.analysis
-        )
-        
-    except Exception as e:
-        LogManager.log_error("claude", str(e))
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al analizar texto: {str(e)}"
-        )
-
-@router.post("/generate", response_model=ClaudeResponse)
-async def generate_markdown(
-    request: ClaudeRequest,
-    api_key: str = Depends(verify_api_key)
-):
-    """
-    Genera contenido en formato Markdown usando Claude.
+    start_time = time.time()
     
-    Args:
-        request: Solicitud de generación
-        api_key: API key para autenticación
-        
-    Returns:
-        ClaudeResponse: Contenido generado
-    """
     try:
-        # Registrar la operación
-        markdown_logger.log_claude_operation(
-            operation="generate",
-            details={
-                "text": request.text[:100] + "...",
-                "format_type": request.format_type
-            }
+        # Verificar API key
+        if not current_user.get("api_key"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key no proporcionada"
+            )
+        
+        # Analizar texto
+        service = get_claude_service()
+        analysis = await service.analyze_text(text, analysis_type)
+        
+        # Registrar métricas
+        await metrics.record_api_call(
+            endpoint="analyze_text",
+            method="POST",
+            status_code=200,
+            response_time=time.time() - start_time
         )
         
-        # Generar contenido
-        response = await claude_service.generate_markdown(
-            text=request.text,
-            format_type=request.format_type,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature
-        )
+        return analysis
         
-        return ClaudeResponse(
-            content=response.content,
-            tokens_used=response.tokens_used,
-            model=response.model
-        )
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        LogManager.log_error("claude", str(e))
-        raise HTTPException(
+        # Registrar error en métricas
+        await metrics.record_api_call(
+            endpoint="analyze_text",
+            method="POST",
             status_code=500,
-            detail=f"Error al generar contenido: {str(e)}"
+            response_time=time.time() - start_time
+        )
+        
+        logger.error(f"Error al analizar texto: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error al analizar texto"
         ) 

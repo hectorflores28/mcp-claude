@@ -15,7 +15,7 @@
 | Versión | 1.1.0 (Beta) |
 | Estado | En desarrollo activo |
 | Última actualización | 7 de abril de 2025 |
-| Características implementadas | 85% |
+| Características implementadas | 90% |
 | Tests implementados | 60% |
 
 ## ✨ Características Principales
@@ -29,6 +29,17 @@
 - ✅ Sistema de plugins para extensibilidad
 - ✅ Configuración para Claude Desktop
 - ✅ Tests unitarios y de integración
+- ✅ Sistema de blacklist de tokens
+- ✅ Métricas de rendimiento con Prometheus
+- ✅ Procesamiento en lote para operaciones múltiples
+
+## 🔄 Características Pendientes
+
+- ⏳ Integración completa con Claude Desktop
+- ⏳ Panel de administración web
+- ⏳ Documentación automática de API
+- ⏳ Sistema de notificaciones en tiempo real
+- ⏳ Mejora de la cobertura de pruebas
 
 ## 🛠️ Requisitos
 
@@ -149,6 +160,14 @@ MIT
 Para más detalles, consulta nuestra [guía de contribución](CONTRIBUTING.md).
 
 ## 📝 Historial de Cambios
+
+### v1.1.1 (7 de abril de 2025)
+- Optimización del sistema de caché con pool de conexiones
+- Implementación de blacklist de tokens con limpieza automática
+- Mejora del sistema de métricas con procesamiento en lote
+- Optimización del sistema de logging con formato JSON
+- Implementación de reintentos automáticos para operaciones críticas
+- Mejora del manejo de errores y excepciones
 
 ### v1.1.0 (7 de abril de 2025)
 - Implementación del sistema de caché distribuido con Redis
