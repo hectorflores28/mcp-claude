@@ -1,15 +1,16 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+import time
+
 from app.api.endpoints import (
-    search,
-    filesystem,
-    tools,
-    mcp,
-    claude,
-    prompts,
-    logs,
-    health
+    search_router,
+    filesystem_router,
+    tools_router,
+    health_router,
+    claude_router,
+    prompts_router,
+    logs_router
 )
 from app.core.config import settings
 from app.core.logging import LogManager
@@ -37,20 +38,21 @@ app.add_exception_handler(MCPClaudeError, mcp_claude_error_handler)
 app.add_exception_handler(Exception, http_exception_handler)
 
 # Incluir routers
-app.include_router(search.router, prefix="/api")
-app.include_router(filesystem.router, prefix="/api")
-app.include_router(tools.router, prefix="/api")
-app.include_router(mcp.router, prefix="/api")
-app.include_router(claude.router, prefix="/api")
-app.include_router(prompts.router, prefix="/api")
-app.include_router(logs.router, prefix="/api")
-app.include_router(health.router, prefix="/api")
+app.include_router(search_router, prefix="/api", tags=["search"])
+app.include_router(filesystem_router, prefix="/api", tags=["filesystem"])
+app.include_router(tools_router, prefix="/api", tags=["tools"])
+app.include_router(health_router, prefix="/api", tags=["health"])
+app.include_router(claude_router, prefix="/api", tags=["claude"])
+app.include_router(prompts_router, prefix="/api", tags=["prompts"])
+app.include_router(logs_router, prefix="/api", tags=["logs"])
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """
     Middleware para registrar todas las solicitudes HTTP
     """
+    start_time = time.time()
+    
     # Registrar solicitud
     LogManager.log_api_request(
         method=request.method,
@@ -61,11 +63,15 @@ async def log_requests(request: Request, call_next):
     # Procesar solicitud
     response = await call_next(request)
     
+    # Calcular tiempo de respuesta
+    response_time = time.time() - start_time
+    
     # Registrar respuesta
     LogManager.log_api_response(
         method=request.method,
         path=request.url.path,
-        status_code=response.status_code
+        status_code=response.status_code,
+        response_time=response_time
     )
     
     return response
@@ -75,6 +81,7 @@ async def startup_event():
     """
     Evento de inicio de la aplicación
     """
+    LogManager.setup_logger()
     LogManager.log_info("Iniciando MCP Claude API...")
 
 @app.on_event("shutdown")
