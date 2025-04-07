@@ -135,3 +135,50 @@ pytest tests/e2e
 ## Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+## Características Implementadas
+
+- Sistema de logging con rotación de archivos
+- Sistema de métricas y monitoreo
+- Procesamiento asíncrono de solicitudes
+- Pruebas unitarias para servicios principales
+
+## En Desarrollo
+
+- Integración con API de Claude
+- Sistema de gestión de prompts
+- Interfaz de usuario
+
+## Tareas Pendientes
+
+- Sistema de monitoreo en tiempo real
+- Sistema de autenticación y autorización
+- Pruebas de rendimiento y optimización
+- Documentación de API
+
+## Estructura del Proyecto
+
+```
+mcp-claude/
+├── app/
+│   ├── api/            # Endpoints de la API
+│   ├── core/           # Funcionalidad central
+│   │   ├── logging/    # Sistema de logging
+│   │   └── config/     # Configuración
+│   ├── services/       # Servicios de la aplicación
+│   │   ├── metrics.py  # Servicio de métricas
+│   │   └── async_processor.py  # Procesamiento asíncrono
+│   └── utils/          # Utilidades
+├── data/
+│   ├── metrics/        # Datos de métricas
+│   └── cache/          # Caché de respuestas
+├── logs/               # Archivos de log
+│   ├── app/           
+│   ├── access/
+│   └── error/
+├── tests/              # Pruebas
+│   ├── unit/
+│   └── integration/
+├── requirements.txt    # Dependencias
+└── README.md
+```
