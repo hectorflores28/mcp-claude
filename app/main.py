@@ -221,7 +221,10 @@ if __name__ == "__main__":
             reload=settings.DEBUG,
             log_level="info",
             access_log=True,
-            loop="asyncio"
+            loop="asyncio",
+            workers=1,
+            limit_concurrency=100,
+            timeout_keep_alive=5
         )
         server = uvicorn.Server(config)
         
