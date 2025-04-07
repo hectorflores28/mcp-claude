@@ -34,6 +34,50 @@ async def claude_status(
         "temperature": claude_service.temperature
     }
 
+@router.post("/mcp/completion", response_model=ClaudeResponse)
+async def mcp_completion(
+    request: ClaudeRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Endpoint específico para la integración con Claude Desktop MCP.
+    
+    Args:
+        request: Solicitud de completado
+        api_key: API key para autenticación
+        
+    Returns:
+        ClaudeResponse: Respuesta de Claude
+    """
+    try:
+        # Registrar la operación
+        markdown_logger.log_claude_operation(
+            operation="mcp_completion",
+            details={
+                "text": request.text[:100] + "..."
+            }
+        )
+        
+        # Realizar completado
+        response = await claude_service.mcp_completion(
+            prompt=request.text,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature
+        )
+        
+        return ClaudeResponse(
+            content=response["content"],
+            tokens_used=response["tokens_used"],
+            model=response["model"]
+        )
+        
+    except Exception as e:
+        LogManager.log_error("claude", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al procesar la solicitud: {str(e)}"
+        )
+
 @router.post("/analyze", response_model=ClaudeResponse)
 async def analyze_text(
     request: ClaudeRequest,

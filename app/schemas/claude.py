@@ -6,7 +6,7 @@ class ClaudeRequest(BaseModel):
     Solicitud para Claude
     """
     text: str = Field(..., description="Texto a analizar")
-    analysis_type: str = Field(..., description="Tipo de análisis a realizar")
+    analysis_type: Optional[str] = Field(None, description="Tipo de análisis a realizar")
     format_type: Optional[str] = Field("article", description="Tipo de formato para generación de Markdown")
     max_tokens: Optional[int] = Field(4096, description="Número máximo de tokens")
     temperature: Optional[float] = Field(0.7, description="Temperatura para la generación")
