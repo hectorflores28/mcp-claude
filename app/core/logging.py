@@ -1,5 +1,6 @@
 from pythonjsonlogger import jsonlogger
 import logging
+import logging.handlers
 import os
 from datetime import datetime
 from typing import Optional, Dict, Any
@@ -55,52 +56,120 @@ class LogManager:
     """Gestor de logs para MCP-Claude"""
     
     _instance = None
+    _logger = None
     _initialized = False
     
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super().__new__(cls)
+            cls._instance = super(LogManager, cls).__new__(cls)
         return cls._instance
     
-    def __init__(self):
-        if not LogManager._initialized:
-            self.logger = logging.getLogger("mcp_claude")
-            self.logger.setLevel(log_level)
-            LogManager._initialized = True
-    
     @classmethod
-    def setup_logger(cls) -> None:
-        """Configura el sistema de logs"""
-        # Configurar logger
+    def initialize(cls) -> None:
+        """
+        Inicializa el sistema de logging con configuración personalizada
+        """
+        if cls._initialized:
+            return
+
+        # Crear directorio de logs si no existe
+        log_dir = settings.LOG_DIR
+        os.makedirs(log_dir, exist_ok=True)
+
+        # Configurar logger principal
         logger = logging.getLogger("mcp_claude")
-        logger.setLevel(log_level)
-        
-        # Limpiar handlers existentes
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-        
-        # Handler para archivo
-        file_handler = logging.FileHandler(
-            log_dir / "app.log",
-            mode='a',
+        logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+
+        # Formato de logging
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+
+        # Handler para archivo con rotación
+        log_file = os.path.join(log_dir, "app.log")
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5,
             encoding='utf-8'
         )
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        ))
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-        
+
         # Handler para consola
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        ))
+        console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
+
+        cls._logger = logger
+        cls._initialized = True
+
+        # Log inicial
+        cls.log_info("Sistema de logging inicializado")
+        cls.log_info(f"Directorio de logs: {log_dir}")
+        cls.log_info(f"Nivel de logging: {settings.LOG_LEVEL}")
+    
+    @classmethod
+    def log_info(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Registra un mensaje de nivel INFO
+        """
+        if not cls._initialized:
+            cls.initialize()
+        cls._logger.info(message, extra=extra or {})
+    
+    @classmethod
+    def log_error(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Registra un mensaje de nivel ERROR
+        """
+        if not cls._initialized:
+            cls.initialize()
+        cls._logger.error(message, extra=extra or {})
+    
+    @classmethod
+    def log_warning(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Registra un mensaje de nivel WARNING
+        """
+        if not cls._initialized:
+            cls.initialize()
+        cls._logger.warning(message, extra=extra or {})
+    
+    @classmethod
+    def log_debug(cls, message: str, extra: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Registra un mensaje de nivel DEBUG
+        """
+        if not cls._initialized:
+            cls.initialize()
+        cls._logger.debug(message, extra=extra or {})
+    
+    @classmethod
+    def log_request(cls, method: str, url: str, status_code: int, process_time: float) -> None:
+        """
+        Registra información de una solicitud HTTP
+        """
+        extra = {
+            "method": method,
+            "url": url,
+            "status_code": status_code,
+            "process_time": f"{process_time:.3f}s"
+        }
         
-        # Registrar inicio
-        logger.info("Sistema de logging inicializado")
-        logger.info(f"Directorio de logs: {log_dir.absolute()}")
-        logger.info(f"Nivel de logging: {settings.LOG_LEVEL}")
+        if status_code >= 500:
+            cls.log_error(f"Error en solicitud: {method} {url}", extra)
+        elif status_code >= 400:
+            cls.log_warning(f"Solicitud fallida: {method} {url}", extra)
+        else:
+            cls.log_info(f"Solicitud exitosa: {method} {url}", extra)
+    
+    @classmethod
+    def is_available(cls) -> bool:
+        """
+        Verifica si el sistema de logging está disponible
+        """
+        return cls._initialized and cls._logger is not None
     
     @classmethod
     def log_api_request(cls, method: str, path: str, data: Optional[Dict[str, Any]] = None) -> None:
@@ -128,32 +197,6 @@ class LogManager:
         """Registra una respuesta de Claude"""
         logger = logging.getLogger("mcp_claude")
         logger.info(f"Claude Response: Model: {model}, Time: {response_time:.2f}s, Tokens: {token_count}")
-    
-    @classmethod
-    def log_error(cls, error_type: str, error_message: str, stack_trace: Optional[str] = None) -> None:
-        """Registra un error"""
-        logger = logging.getLogger("mcp_claude")
-        logger.error(f"Error: {error_type} - {error_message}")
-        if stack_trace:
-            logger.error(f"Stack Trace: {stack_trace}")
-    
-    @classmethod
-    def log_info(cls, message: str, **kwargs) -> None:
-        """Registra un mensaje informativo"""
-        logger = logging.getLogger("mcp_claude")
-        logger.info(message, **kwargs)
-    
-    @classmethod
-    def log_warning(cls, message: str, **kwargs) -> None:
-        """Registra un mensaje de advertencia"""
-        logger = logging.getLogger("mcp_claude")
-        logger.warning(message, **kwargs)
-    
-    @classmethod
-    def log_debug(cls, message: str, **kwargs) -> None:
-        """Registra un mensaje de depuración"""
-        logger = logging.getLogger("mcp_claude")
-        logger.debug(message, **kwargs)
     
     @classmethod
     def log_search(cls, query: str, results: list):

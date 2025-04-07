@@ -8,8 +8,9 @@ Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
 - Sistema de recursos y herramientas
 - Rate limiting con Redis
 - Caché distribuido con Redis
-- Logging de operaciones
+- Logging avanzado con rotación de archivos
 - Autenticación JWT y API Key
+- Lista negra de tokens
 - Configuración para Claude Desktop
 - Tests unitarios y de integración
 
@@ -66,6 +67,10 @@ uvicorn app.main:app --reload
 - `REDIS_PORT`: Puerto de Redis (default: 6379)
 - `REDIS_PASSWORD`: Contraseña de Redis (opcional)
 - `REDIS_SSL`: Habilitar SSL para Redis (default: false)
+- `LOG_LEVEL`: Nivel de logging (default: INFO)
+- `LOG_DIR`: Directorio de logs (default: logs)
+- `LOG_MAX_BYTES`: Tamaño máximo de archivo de log (default: 10MB)
+- `LOG_BACKUP_COUNT`: Número de archivos de backup (default: 5)
 
 ### Claude Desktop
 
@@ -75,6 +80,12 @@ uvicorn app.main:app --reload
 
 ## API Endpoints
 
+### Autenticación
+- `POST /api/v1/auth/token`: Obtener token JWT
+- `POST /api/v1/auth/refresh`: Refrescar token
+- `POST /api/v1/auth/revoke`: Revocar token
+
+### MCP
 - `GET /api/mcp/status`: Estado del protocolo MCP
 - `POST /api/mcp/execute`: Ejecutar operación MCP
 - `GET /api/mcp/operations`: Obtener operaciones recientes
