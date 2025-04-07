@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import logging
+import signal
+import sys
 
 from app.api.endpoints import (
     # search_router,
@@ -18,6 +20,23 @@ from app.core.logging import LogManager
 from app.core.exceptions import MCPClaudeError
 from app.core.error_handlers import mcp_claude_error_handler, http_exception_handler
 import uvicorn
+
+# Variable global para controlar el estado del servidor
+server_running = True
+
+def signal_handler(sig, frame):
+    """
+    Manejador de señales para detener el servidor correctamente
+    """
+    global server_running
+    logger = logging.getLogger("mcp_claude")
+    logger.info("Recibida señal de interrupción. Deteniendo servidor...")
+    server_running = False
+    sys.exit(0)
+
+# Registrar manejadores de señales
+signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
+signal.signal(signal.SIGTERM, signal_handler)  # Señal de terminación
 
 app = FastAPI(
     title="MCP Claude API",
@@ -186,13 +205,19 @@ if __name__ == "__main__":
     logger.info(f"Iniciando servidor en {settings.HOST}:{settings.PORT}")
     
     try:
-        uvicorn.run(
+        config = uvicorn.Config(
             "app.main:app",
             host=settings.HOST,
             port=settings.PORT,
             reload=settings.DEBUG,
             log_level="info"
         )
+        server = uvicorn.Server(config)
+        server.run()
+    except KeyboardInterrupt:
+        logger.info("Servidor detenido por el usuario")
     except Exception as e:
         logger.error(f"Error al iniciar el servidor: {str(e)}")
-        raise 
+        raise
+    finally:
+        logger.info("Cerrando servidor...") 

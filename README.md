@@ -12,6 +12,8 @@ Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
 - ✅ Endpoints para Claude Desktop MCP
 - ✅ Sistema de archivos
 - ✅ Autenticación con API Key
+- ✅ Endpoint de estado MCP mejorado
+- ✅ Sistema de logging optimizado
 
 ### En Progreso
 - 🔄 Mejora de la integración con Claude Desktop
@@ -119,6 +121,7 @@ mcp-claude/
 - Verificar que el servidor esté ejecutándose
 - Comprobar que no haya otro servicio usando el puerto 8000
 - Verificar los logs en `logs/app.log`
+- Asegurarse de que el host está configurado como `127.0.0.1` en el archivo `.env`
 
 ### Claude Desktop no se conecta
 - Verificar la configuración en `claude_desktop_config.json`
@@ -129,6 +132,7 @@ mcp-claude/
 ### No se registran logs
 - Verificar que el directorio `logs` existe y tiene permisos de escritura
 - Comprobar que `LOG_LEVEL` está configurado correctamente en `.env`
+- Asegurarse de que el servidor se inicia con `python -m app.main`
 
 ## Licencia
 
