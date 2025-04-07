@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Any, Union
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from app.core.mcp_config import (
@@ -10,12 +10,14 @@ from app.core.mcp_config import (
 )
 from app.schemas.mcp import (
     MCPRequest, MCPResponse, MCPError, MCPStatus, 
-    MCPOperation, MCPExecuteRequest, MCPExecuteResponse
+    MCPOperation, MCPExecuteRequest, MCPExecuteResponse, MCPMethod
 )
 from app.services.resources_service import ResourcesService
 from app.services.filesystem_service import FileSystemService
 from app.services.claude_service import ClaudeService
 from app.services.cache import CacheService
+from app.core.logging import LogManager
+from app.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +26,9 @@ class MCPService:
     Servicio principal para el protocolo MCP
     """
     def __init__(self):
+        """
+        Inicializa el servicio MCP.
+        """
         self.resources_service = ResourcesService()
         self.filesystem_service = FileSystemService()
         self.claude_service = ClaudeService()
@@ -31,20 +36,101 @@ class MCPService:
         self.operations: List[MCPOperation] = []
         self._rate_limit_cache: Dict[str, Dict[str, int]] = {}
         self._last_cleanup = time.time()
+        LogManager.log_info("mcp", "Servicio MCP inicializado")
         
     async def get_status(self) -> MCPStatus:
         """
-        Obtiene el estado actual del protocolo MCP
+        Obtiene el estado actual del protocolo MCP.
+        
+        Returns:
+            Estado del protocolo MCP
         """
-        return MCPStatus(
-            version=mcp_config.version,
-            features=mcp_config.features,
-            resource_types=mcp_config.resource_types,
-            access_levels=mcp_config.access_levels,
-            resources=list(mcp_resources.keys()),
-            tools=list(mcp_tools.keys()),
+        # Intentar obtener del caché
+        cache_key = "mcp:status"
+        cached_status = cache.get(cache_key)
+        
+        if cached_status:
+            LogManager.log_info("mcp", "Estado MCP obtenido del caché")
+            return MCPStatus(**cached_status)
+        
+        # Si no está en caché, crear nuevo estado
+        status = MCPStatus(
+            version=MCPVersion.V1_1,
+            features=["resources", "tools", "filesystem", "cache", "logging", "prompts"],
+            resource_types=["filesystem", "claude", "search", "cache"],
+            access_levels=["read", "write", "admin"],
+            resources={
+                "filesystem": {
+                    "type": "filesystem",
+                    "operations": ["create", "read", "update", "delete", "list"],
+                    "access_level": "write"
+                },
+                "claude": {
+                    "type": "claude",
+                    "operations": ["completion", "analyze", "generate"],
+                    "access_level": "read"
+                },
+                "search": {
+                    "type": "search",
+                    "operations": ["execute", "analyze"],
+                    "access_level": "read"
+                },
+                "cache": {
+                    "type": "cache",
+                    "operations": ["get", "set", "delete", "clear"],
+                    "access_level": "write"
+                }
+            },
+            tools={
+                "buscar_en_brave": {
+                    "name": "buscar_en_brave",
+                    "description": "Realiza una búsqueda web usando Brave Search",
+                    "parameters": {
+                        "query": {"type": "string", "description": "Consulta de búsqueda", "required": True},
+                        "num_results": {"type": "integer", "description": "Número de resultados", "required": False, "default": 5},
+                        "analysis": {"type": "boolean", "description": "Analizar resultados", "required": False, "default": False}
+                    },
+                    "required_resources": ["search"],
+                    "cache_enabled": True,
+                    "cache_ttl": 3600,
+                    "rate_limit": 10,
+                    "timeout": 30
+                },
+                "generar_markdown": {
+                    "name": "generar_markdown",
+                    "description": "Genera contenido en formato Markdown",
+                    "parameters": {
+                        "content": {"type": "string", "description": "Contenido a formatear", "required": True},
+                        "format": {"type": "string", "description": "Tipo de formato", "required": False, "default": "basic"},
+                        "save": {"type": "boolean", "description": "Guardar archivo", "required": False, "default": False},
+                        "filename": {"type": "string", "description": "Nombre del archivo", "required": False}
+                    },
+                    "required_resources": ["filesystem"],
+                    "cache_enabled": False,
+                    "rate_limit": 20,
+                    "timeout": 15
+                },
+                "analizar_texto": {
+                    "name": "analizar_texto",
+                    "description": "Analiza texto usando Claude",
+                    "parameters": {
+                        "text": {"type": "string", "description": "Texto a analizar", "required": True},
+                        "analysis_type": {"type": "string", "description": "Tipo de análisis", "required": False, "default": "general"}
+                    },
+                    "required_resources": ["claude"],
+                    "cache_enabled": True,
+                    "cache_ttl": 86400,
+                    "rate_limit": 5,
+                    "timeout": 60
+                }
+            },
             timestamp=datetime.now().isoformat()
         )
+        
+        # Guardar en caché por 5 minutos
+        cache.set(cache_key, status.dict(), expire=300)
+        
+        return status
     
     def _check_rate_limit(self, request: MCPRequest) -> bool:
         """

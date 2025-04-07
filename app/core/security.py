@@ -33,31 +33,59 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Crea un token JWT."""
+    """
+    Crea un token JWT con los datos proporcionados.
+    
+    Args:
+        data: Datos a incluir en el token
+        expires_delta: Tiempo de expiración del token
+        
+    Returns:
+        Token JWT firmado
+    """
     to_encode = data.copy()
     
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     
     return encoded_jwt
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str) -> Dict[str, Any]:
     """
-    Verifica un token JWT
+    Verifica un token JWT y devuelve los datos decodificados.
+    
+    Args:
+        token: Token JWT a verificar
+        
+    Returns:
+        Datos decodificados del token
+        
+    Raises:
+        HTTPException: Si el token es inválido o ha expirado
     """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            token, 
+            settings.JWT_SECRET_KEY, 
+            algorithms=[settings.JWT_ALGORITHM]
+        )
         return payload
-    except JWTError:
-        LogManager.log_error("security", "Token inválido")
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
-            status_code=401,
-            detail="Token inválido"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token ha expirado",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo validar el token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 def get_current_user(token: str = Depends(verify_api_key)) -> dict:

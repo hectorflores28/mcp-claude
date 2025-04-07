@@ -8,6 +8,7 @@ from app.core.logging import LogManager
 import time
 from functools import wraps
 import asyncio
+import pickle
 
 class CacheBackend:
     """Interfaz base para backends de caché"""
@@ -162,6 +163,148 @@ class FileCache(CacheBackend):
         except Exception as e:
             LogManager.log_error("CACHE_ERROR", f"Error al limpiar caché: {str(e)}")
             return False
+
+class RedisCache:
+    """
+    Clase para manejar el caché con Redis.
+    """
+    
+    def __init__(self):
+        """
+        Inicializa la conexión con Redis.
+        """
+        try:
+            self.redis_client = redis.Redis(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                db=settings.REDIS_DB,
+                password=settings.REDIS_PASSWORD,
+                decode_responses=True
+            )
+            self.redis_client.ping()
+            LogManager.log_info("cache", "Conexión con Redis establecida")
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al conectar con Redis: {str(e)}")
+            self.redis_client = None
+    
+    def is_available(self) -> bool:
+        """
+        Verifica si Redis está disponible.
+        
+        Returns:
+            True si Redis está disponible, False en caso contrario
+        """
+        if self.redis_client is None:
+            return False
+        
+        try:
+            self.redis_client.ping()
+            return True
+        except Exception:
+            return False
+    
+    def get(self, key: str) -> Optional[Any]:
+        """
+        Obtiene un valor del caché.
+        
+        Args:
+            key: Clave del valor a obtener
+            
+        Returns:
+            Valor almacenado en el caché o None si no existe
+        """
+        if not self.is_available():
+            return None
+        
+        try:
+            value = self.redis_client.get(key)
+            if value is None:
+                return None
+            
+            # Intentar deserializar como JSON
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                # Si no es JSON, intentar deserializar como pickle
+                return pickle.loads(value)
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al obtener valor del caché: {str(e)}")
+            return None
+    
+    def set(self, key: str, value: Any, expire: Optional[Union[int, timedelta]] = None) -> bool:
+        """
+        Almacena un valor en el caché.
+        
+        Args:
+            key: Clave para almacenar el valor
+            value: Valor a almacenar
+            expire: Tiempo de expiración en segundos o timedelta
+            
+        Returns:
+            True si se almacenó correctamente, False en caso contrario
+        """
+        if not self.is_available():
+            return False
+        
+        try:
+            # Intentar serializar como JSON
+            try:
+                serialized = json.dumps(value)
+            except (TypeError, OverflowError):
+                # Si no se puede serializar como JSON, usar pickle
+                serialized = pickle.dumps(value)
+            
+            if expire is not None:
+                if isinstance(expire, timedelta):
+                    expire = int(expire.total_seconds())
+                self.redis_client.setex(key, expire, serialized)
+            else:
+                self.redis_client.set(key, serialized)
+            
+            return True
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al almacenar valor en el caché: {str(e)}")
+            return False
+    
+    def delete(self, key: str) -> bool:
+        """
+        Elimina un valor del caché.
+        
+        Args:
+            key: Clave del valor a eliminar
+            
+        Returns:
+            True si se eliminó correctamente, False en caso contrario
+        """
+        if not self.is_available():
+            return False
+        
+        try:
+            self.redis_client.delete(key)
+            return True
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al eliminar valor del caché: {str(e)}")
+            return False
+    
+    def clear(self) -> bool:
+        """
+        Limpia todo el caché.
+        
+        Returns:
+            True si se limpió correctamente, False en caso contrario
+        """
+        if not self.is_available():
+            return False
+        
+        try:
+            self.redis_client.flushdb()
+            return True
+        except Exception as e:
+            LogManager.log_error("cache", f"Error al limpiar el caché: {str(e)}")
+            return False
+
+# Instancia global del caché
+cache = RedisCache()
 
 class CacheManager:
     """Gestor de caché para MCP-Claude"""

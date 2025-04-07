@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -11,17 +11,18 @@ from app.api.endpoints import router as api_router
 from app.core.logging import LogManager
 from app.core.config import settings
 from app.services.mcp_service import MCPService
+from app.middleware.auth import verify_auth
 
 app = FastAPI(
     title="MCP-Claude API",
     description="API para integración con Claude Desktop usando el protocolo MCP",
-    version="0.1.0"
+    version="1.1.0"
 )
 
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,6 +67,20 @@ async def error_handler(request: Request, call_next):
             content={"detail": str(e)}
         )
 
+# Middleware para autenticación
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    try:
+        # Verificar autenticación
+        await verify_auth(request)
+        return await call_next(request)
+    except Exception as e:
+        LogManager.log_error("auth", str(e))
+        return JSONResponse(
+            status_code=401,
+            content={"detail": str(e)}
+        )
+
 # Eventos de inicio y apagado
 @app.on_event("startup")
 async def startup_event():
@@ -86,7 +101,7 @@ async def health_check():
     """
     return {
         "status": "ok",
-        "version": "0.1.0",
+        "version": "1.1.0",
         "services": {
             "mcp": await mcp_service.get_status(),
             "logging": LogManager.is_available()
@@ -100,7 +115,7 @@ async def status():
     """
     return {
         "status": "ok",
-        "version": "0.1.0",
+        "version": "1.1.0",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "services": {
@@ -112,7 +127,7 @@ async def status():
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG
     ) 

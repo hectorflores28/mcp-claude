@@ -1,64 +1,37 @@
 # MCP-Claude
 
-Sistema de integración con Claude 3.5 Sonnet para Claude Desktop, implementando el Model Context Protocol (MCP).
+Servidor MCP (Multi-Channel Protocol) para Claude Desktop v1.1.0 (Beta)
 
-## Estado del Proyecto
+## Características
 
-### Versión Actual
-- Versión: 1.1.0 (Beta)
-- Estado: En desarrollo activo
-- Última actualización: 2024-04-07
-
-### Implementado ✅
-- Estructura base del proyecto
-- Configuración de FastAPI
-- Sistema de logs estandarizado
-- Integración básica con API de Claude
-- Endpoints para Claude Desktop MCP
-- Sistema de archivos básico
-- Autenticación con API Key
-- Endpoint de estado MCP
-- Sistema de logging básico
 - Protocolo MCP completo (v1.1)
 - Sistema de recursos y herramientas
-- Límite de tasa por método/herramienta
-- Sistema de caché para resultados
-- Registro de operaciones
+- Rate limiting con Redis
+- Caché distribuido con Redis
+- Logging de operaciones
+- Autenticación JWT y API Key
 - Configuración para Claude Desktop
-
-### En Desarrollo 🔄
-- Mejora de la integración con Claude Desktop
-- Optimización del sistema de logs
-- Documentación de API
-- Pruebas unitarias y de integración
-- Mejoras de seguridad avanzadas
-
-### Próximas Versiones
-- v1.2.0: Mejoras de seguridad y rendimiento
-- v1.3.0: Documentación completa y pruebas
-- v2.0.0: Versión estable para producción
-
-Para ver la lista completa de tareas pendientes, consulta [PENDING.md](PENDING.md).
+- Tests unitarios y de integración
 
 ## Requisitos
 
-- Python 3.10+
-- API Key de Claude
-- Claude Desktop
-- Docker (opcional, para desarrollo)
+- Python 3.8+
+- Redis 6.0+
+- XAMPP (para desarrollo local)
 
 ## Instalación
 
 1. Clonar el repositorio:
 ```bash
-git clone https://github.com/hectorflores28/mcp-claude.git
+git clone https://github.com/tu-usuario/mcp-claude.git
 cd mcp-claude
 ```
 
-2. Configurar variables de entorno:
+2. Crear entorno virtual:
 ```bash
-cp .env.example .env
-# Editar .env con tus credenciales
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
 ```
 
 3. Instalar dependencias:
@@ -66,162 +39,82 @@ cp .env.example .env
 pip install -r requirements.txt
 ```
 
-4. Crear directorios necesarios:
+4. Configurar variables de entorno:
 ```bash
-mkdir logs data temp uploads
+cp .env.example .env
+# Editar .env con tus configuraciones
 ```
 
-5. Ejecutar el servidor:
+5. Iniciar Redis:
 ```bash
-python -m app.main
+# Asegúrate de que Redis esté instalado y ejecutándose
+redis-server
 ```
 
-### Usando Docker
+6. Iniciar el servidor:
+```bash
+uvicorn app.main:app --reload
+```
+
+## Configuración
+
+### Variables de Entorno
+
+- `SECRET_KEY`: Clave secreta para JWT
+- `API_KEY`: Clave API para autenticación
+- `REDIS_HOST`: Host de Redis (default: localhost)
+- `REDIS_PORT`: Puerto de Redis (default: 6379)
+- `REDIS_PASSWORD`: Contraseña de Redis (opcional)
+- `REDIS_SSL`: Habilitar SSL para Redis (default: false)
+
+### Claude Desktop
+
+1. Copiar `claude_desktop_config.json` a la carpeta de configuración de Claude Desktop
+2. Reiniciar Claude Desktop
+3. El protocolo MCP estará disponible automáticamente
+
+## API Endpoints
+
+- `GET /api/mcp/status`: Estado del protocolo MCP
+- `POST /api/mcp/execute`: Ejecutar operación MCP
+- `GET /api/mcp/operations`: Obtener operaciones recientes
+
+## Desarrollo
+
+### Tests
 
 ```bash
-docker-compose up -d
+# Ejecutar todos los tests
+pytest
+
+# Ejecutar tests con cobertura
+pytest --cov=app
+
+# Ejecutar tests específicos
+pytest tests/unit/test_mcp_service.py
 ```
 
-## Integración con Claude Desktop
+### Linting
 
-1. Configurar Claude Desktop:
-   - Abrir Claude Desktop
-   - Ir a Settings > Developers
-   - Configurar MCP:
-     ```json
-     {
-         "mcp": {
-             "enabled": true,
-             "url": "http://127.0.0.1:8000",
-             "api_key": "tu-api-key-aquí"
-         }
-     }
-     ```
+```bash
+# Formatear código
+black .
 
-2. Verificar la conexión:
-   - Acceder a `http://127.0.0.1:8000/api/health`
-   - Acceder a `http://127.0.0.1:8000/api/mcp/status`
+# Ordenar imports
+isort .
 
-3. Reiniciar Claude Desktop después de la configuración
-
-## Estructura del Proyecto
-
+# Verificar tipos
+mypy .
 ```
-mcp-claude/
-├── app/
-│   ├── api/
-│   │   └── endpoints/
-│   │       ├── claude.py
-│   │       ├── filesystem.py
-│   │       ├── mcp.py
-│   │       └── ...
-│   ├── core/
-│   │   ├── config.py
-│   │   ├── logging.py
-│   │   ├── mcp_config.py
-│   │   └── security.py
-│   ├── schemas/
-│   │   ├── mcp.py
-│   │   └── ...
-│   ├── services/
-│   │   ├── claude_service.py
-│   │   ├── mcp_service.py
-│   │   └── ...
-│   └── main.py
-├── data/
-├── logs/
-├── temp/
-├── uploads/
-├── tests/
-├── docs/
-├── .env
-├── claude_desktop_config.json
-└── requirements.txt
-```
-
-## Endpoints Principales
-
-- `/api/health` - Estado del servidor
-- `/api/mcp/status` - Estado para integración con Claude Desktop
-- `/api/mcp/execute` - Ejecución de herramientas MCP
-- `/api/mcp/operations` - Consulta de operaciones recientes
-- `/api/claude/status` - Estado del servicio de Claude
-- `/api/claude/mcp/completion` - Endpoint para completado de Claude
-
-## Características del Protocolo MCP
-
-### Versión 1.1
-- Soporte para múltiples versiones del protocolo
-- Sistema de recursos con tipos y niveles de acceso
-- Herramientas con parámetros y recursos requeridos
-- Límite de tasa por método/herramienta
-- Sistema de caché para resultados
-- Registro de operaciones con timestamps
-- Validación de solicitudes y respuestas
-- Manejo de errores estandarizado
-
-### Herramientas Disponibles
-- `buscar_en_brave`: Búsqueda web usando Brave Search
-- `generar_markdown`: Generación de contenido en formato Markdown
-- `analizar_texto`: Análisis de texto usando Claude
-
-### Recursos Disponibles
-- `filesystem`: Operaciones de sistema de archivos
-- `claude`: Operaciones con la API de Claude
-- `search`: Operaciones de búsqueda
-- `cache`: Operaciones de caché
-
-## Control de Versiones
-
-### Versiones
-- v0.1.0 (Alpha) - Versión inicial con funcionalidades básicas
-- v1.0.0 (Beta) - Implementación completa del protocolo MCP
-- v1.1.0 (Beta) - Mejoras de rendimiento y seguridad
-- v1.2.0 (Planned) - Mejoras de seguridad y rendimiento
-- v1.3.0 (Planned) - Documentación completa y pruebas
-- v2.0.0 (Planned) - Versión estable para producción
-
-### Ramas
-- `main` - Rama principal, código estable
-- `develop` - Rama de desarrollo, características en progreso
-- `feature/*` - Ramas para nuevas características
-- `bugfix/*` - Ramas para correcciones de errores
-- `release/*` - Ramas para preparación de releases
-
-## Solución de Problemas
-
-### El servidor no responde
-- Verificar que el servidor esté ejecutándose
-- Comprobar que no haya otro servicio usando el puerto 8000
-- Verificar los logs en `logs/app.log`
-- Asegurarse de que el host está configurado como `127.0.0.1` en el archivo `.env`
-
-### Claude Desktop no se conecta
-- Verificar la configuración en `claude_desktop_config.json`
-- Asegurarse de que la API_KEY coincida en ambos lados
-- Usar `127.0.0.1` en lugar de `localhost`
-- Reiniciar Claude Desktop después de cambios en la configuración
-
-### No se registran logs
-- Verificar que el directorio `logs` existe y tiene permisos de escritura
-- Comprobar que `LOG_LEVEL` está configurado correctamente en `.env`
-- Asegurarse de que el servidor se inicia con `python -m app.main`
-
-## Contribución
-
-Para contribuir al proyecto:
-
-1. Fork el repositorio
-2. Crear una rama para tu característica (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
 
 ## Licencia
 
-Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+MIT
 
-## Contacto
+## Contribuir
 
-- GitHub Issues: [Reportar un problema](https://github.com/hectorflores28/mcp-claude/issues)
-- Email: [tu-email@ejemplo.com]
+1. Fork el repositorio
+2. Crear rama feature (`git checkout -b feature/AmazingFeature`)
+3. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir Pull Request

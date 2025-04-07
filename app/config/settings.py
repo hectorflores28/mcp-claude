@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pathlib import Path
-from typing import List
+from typing import List, Optional
+import os
 
 class Settings(BaseSettings):
     # API Configuration
@@ -29,6 +30,21 @@ class Settings(BaseSettings):
     
     # File System Configuration
     DATA_DIR: Path = Path("data")
+    
+    # Configuración de Redis
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD: Optional[str] = os.getenv("REDIS_PASSWORD", None)
+    REDIS_SSL: bool = os.getenv("REDIS_SSL", "false").lower() == "true"
+    
+    # Configuración de caché
+    CACHE_TTL: int = 300  # 5 minutos por defecto
+    CACHE_PREFIX: str = "mcp:"
+    
+    # Configuración de rate limiting
+    RATE_LIMIT_WINDOW: int = 60  # 1 minuto
+    RATE_LIMIT_MAX_REQUESTS: int = 100
     
     class Config:
         env_file = ".env"
