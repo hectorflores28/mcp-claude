@@ -1,4 +1,4 @@
-from typing import Optional, Any, Dict, Union
+from typing import Optional, Any, Dict, Union, List
 import json
 import hashlib
 from datetime import datetime, timedelta
@@ -6,28 +6,31 @@ import redis
 from app.core.config import settings
 from app.core.logging import LogManager
 import time
-from functools import wraps
+from functools import wraps, lru_cache
 import asyncio
 import pickle
+from abc import ABC, abstractmethod
+from redis.exceptions import RedisError
+import logging
 
-class CacheBackend:
-    """Interfaz base para backends de caché"""
-    
-    def get(self, key: str) -> Optional[Any]:
-        """Obtiene un valor de la caché"""
-        raise NotImplementedError
-    
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """Almacena un valor en la caché"""
-        raise NotImplementedError
-    
-    def delete(self, key: str) -> bool:
-        """Elimina un valor de la caché"""
-        raise NotImplementedError
-    
-    def clear(self) -> bool:
-        """Limpia toda la caché"""
-        raise NotImplementedError
+logger = logging.getLogger(__name__)
+
+class CacheBackend(ABC):
+    @abstractmethod
+    async def get(self, key: str) -> Optional[Any]:
+        pass
+
+    @abstractmethod
+    async def set(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
+        pass
+
+    @abstractmethod
+    async def delete(self, key: str) -> bool:
+        pass
+
+    @abstractmethod
+    async def clear(self) -> bool:
+        pass
 
 class InMemoryCache(CacheBackend):
     """Backend de caché en memoria"""
@@ -35,7 +38,7 @@ class InMemoryCache(CacheBackend):
     def __init__(self):
         self._cache: Dict[str, Dict[str, Any]] = {}
     
-    def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Optional[Any]:
         """Obtiene un valor de la caché en memoria"""
         if key not in self._cache:
             return None
@@ -49,7 +52,7 @@ class InMemoryCache(CacheBackend):
         
         return cache_entry["value"]
     
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Almacena un valor en la caché en memoria"""
         try:
             expires_at = time.time() + ttl if ttl else None
@@ -62,7 +65,7 @@ class InMemoryCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al almacenar en caché: {str(e)}")
             return False
     
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         """Elimina un valor de la caché en memoria"""
         try:
             if key in self._cache:
@@ -72,7 +75,7 @@ class InMemoryCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al eliminar de caché: {str(e)}")
             return False
     
-    def clear(self) -> bool:
+    async def clear(self) -> bool:
         """Limpia toda la caché en memoria"""
         try:
             self._cache.clear()
@@ -96,7 +99,7 @@ class FileCache(CacheBackend):
         key_hash = hashlib.md5(key.encode()).hexdigest()
         return os.path.join(self.cache_dir, f"{key_hash}.json")
     
-    def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Optional[Any]:
         """Obtiene un valor de la caché en archivo"""
         import os
         cache_path = self._get_cache_path(key)
@@ -118,7 +121,7 @@ class FileCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al leer de caché: {str(e)}")
             return None
     
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
         """Almacena un valor en la caché en archivo"""
         import os
         cache_path = self._get_cache_path(key)
@@ -138,7 +141,7 @@ class FileCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al escribir en caché: {str(e)}")
             return False
     
-    def delete(self, key: str) -> bool:
+    async def delete(self, key: str) -> bool:
         """Elimina un valor de la caché en archivo"""
         import os
         cache_path = self._get_cache_path(key)
@@ -151,7 +154,7 @@ class FileCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al eliminar de caché: {str(e)}")
             return False
     
-    def clear(self) -> bool:
+    async def clear(self) -> bool:
         """Limpia toda la caché en archivo"""
         import os
         import glob
@@ -164,88 +167,143 @@ class FileCache(CacheBackend):
             LogManager.log_error("CACHE_ERROR", f"Error al limpiar caché: {str(e)}")
             return False
 
-class RedisCache:
+class RedisCache(CacheBackend):
     """
     Implementación de caché distribuido usando Redis
     """
     def __init__(self):
-        self.redis_client = redis.Redis(
-            host=settings.REDIS_HOST,
-            port=settings.REDIS_PORT,
-            db=settings.REDIS_DB,
-            password=settings.REDIS_PASSWORD,
-            ssl=settings.REDIS_SSL,
-            socket_timeout=settings.REDIS_TIMEOUT,
-            max_connections=settings.REDIS_MAX_CONNECTIONS,
-            decode_responses=True
-        )
-        self.prefix = settings.CACHE_PREFIX
-        LogManager.log_info("Sistema de caché Redis inicializado")
+        self._redis = None
+        self._connection_pool = None
+        self._serializer = pickle
+        self._batch_size = 1000
+        self._retry_attempts = 3
+        self._retry_delay = 0.1
 
-    def _get_key(self, key: str) -> str:
-        """Genera la clave con el prefijo configurado"""
-        return f"{self.prefix}{key}"
+    @property
+    def redis(self):
+        if self._redis is None:
+            self._connection_pool = redis.ConnectionPool(
+                host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                db=settings.REDIS_DB,
+                password=settings.REDIS_PASSWORD,
+                ssl=settings.REDIS_SSL,
+                socket_timeout=settings.REDIS_TIMEOUT,
+                max_connections=settings.REDIS_MAX_CONNECTIONS
+            )
+            self._redis = redis.Redis(connection_pool=self._connection_pool)
+        return self._redis
+
+    async def _execute_with_retry(self, operation):
+        for attempt in range(self._retry_attempts):
+            try:
+                return await asyncio.to_thread(operation)
+            except RedisError as e:
+                if attempt == self._retry_attempts - 1:
+                    logger.error(f"Redis operation failed after {self._retry_attempts} attempts: {str(e)}")
+                    raise
+                await asyncio.sleep(self._retry_delay * (attempt + 1))
 
     async def get(self, key: str) -> Optional[Any]:
-        """
-        Obtiene un valor del caché
-        """
         try:
-            value = self.redis_client.get(self._get_key(key))
-            if value:
-                return json.loads(value)
-            return None
+            value = await self._execute_with_retry(lambda: self.redis.get(key))
+            if value is None:
+                return None
+            return self._serializer.loads(value)
         except Exception as e:
-            LogManager.log_error("cache", f"Error al obtener valor del caché: {str(e)}")
+            logger.error(f"Error getting key {key}: {str(e)}")
             return None
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
-        """
-        Almacena un valor en el caché
-        """
+    async def set(self, key: str, value: Any, expire: Optional[int] = None) -> bool:
         try:
-            ttl = ttl or settings.CACHE_TTL
-            return self.redis_client.setex(
-                self._get_key(key),
-                ttl,
-                json.dumps(value)
+            serialized = self._serializer.dumps(value)
+            if expire:
+                return await self._execute_with_retry(
+                    lambda: self.redis.setex(key, expire, serialized)
+                )
+            return await self._execute_with_retry(
+                lambda: self.redis.set(key, serialized)
             )
         except Exception as e:
-            LogManager.log_error("cache", f"Error al almacenar valor en caché: {str(e)}")
+            logger.error(f"Error setting key {key}: {str(e)}")
             return False
 
     async def delete(self, key: str) -> bool:
-        """
-        Elimina un valor del caché
-        """
         try:
-            return bool(self.redis_client.delete(self._get_key(key)))
+            return await self._execute_with_retry(lambda: self.redis.delete(key) > 0)
         except Exception as e:
-            LogManager.log_error("cache", f"Error al eliminar valor del caché: {str(e)}")
+            logger.error(f"Error deleting key {key}: {str(e)}")
             return False
 
     async def clear(self) -> bool:
-        """
-        Limpia todo el caché
-        """
         try:
-            keys = self.redis_client.keys(f"{self.prefix}*")
-            if keys:
-                return bool(self.redis_client.delete(*keys))
-            return True
+            return await self._execute_with_retry(lambda: self.redis.flushdb())
         except Exception as e:
-            LogManager.log_error("cache", f"Error al limpiar caché: {str(e)}")
+            logger.error(f"Error clearing cache: {str(e)}")
             return False
 
-    async def exists(self, key: str) -> bool:
-        """
-        Verifica si una clave existe en el caché
-        """
+    async def mget(self, keys: List[str]) -> List[Optional[Any]]:
         try:
-            return bool(self.redis_client.exists(self._get_key(key)))
+            values = await self._execute_with_retry(lambda: self.redis.mget(keys))
+            return [
+                self._serializer.loads(v) if v is not None else None
+                for v in values
+            ]
         except Exception as e:
-            LogManager.log_error("cache", f"Error al verificar existencia en caché: {str(e)}")
+            logger.error(f"Error getting multiple keys: {str(e)}")
+            return [None] * len(keys)
+
+    async def mset(self, mapping: Dict[str, Any], expire: Optional[int] = None) -> bool:
+        try:
+            pipe = self.redis.pipeline()
+            for key, value in mapping.items():
+                serialized = self._serializer.dumps(value)
+                if expire:
+                    pipe.setex(key, expire, serialized)
+                else:
+                    pipe.set(key, serialized)
+            return await self._execute_with_retry(lambda: pipe.execute())
+        except Exception as e:
+            logger.error(f"Error setting multiple keys: {str(e)}")
             return False
+
+    async def scan_iter(self, match: str = "*", count: int = 100) -> List[str]:
+        try:
+            cursor = 0
+            keys = []
+            while True:
+                cursor, partial_keys = await self._execute_with_retry(
+                    lambda: self.redis.scan(cursor, match=match, count=count)
+                )
+                keys.extend(partial_keys)
+                if cursor == 0:
+                    break
+            return keys
+        except Exception as e:
+            logger.error(f"Error scanning keys: {str(e)}")
+            return []
+
+    async def get_many(self, keys: List[str]) -> Dict[str, Any]:
+        try:
+            values = await self.mget(keys)
+            return {k: v for k, v in zip(keys, values) if v is not None}
+        except Exception as e:
+            logger.error(f"Error getting many keys: {str(e)}")
+            return {}
+
+    async def set_many(self, mapping: Dict[str, Any], expire: Optional[int] = None) -> bool:
+        try:
+            return await self.mset(mapping, expire)
+        except Exception as e:
+            logger.error(f"Error setting many keys: {str(e)}")
+            return False
+
+    async def delete_many(self, keys: List[str]) -> int:
+        try:
+            return await self._execute_with_retry(lambda: self.redis.delete(*keys))
+        except Exception as e:
+            logger.error(f"Error deleting many keys: {str(e)}")
+            return 0
 
 # Instancia global del caché
 cache = RedisCache()
@@ -440,4 +498,8 @@ class ClaudeCache:
         keys = self.redis_client.keys("claude:*")
         if keys:
             self.redis_client.delete(*keys)
-        LogManager.log_info("Caché limpiado completamente") 
+        LogManager.log_info("Caché limpiado completamente")
+
+@lru_cache()
+def get_cache() -> CacheBackend:
+    return RedisCache() 

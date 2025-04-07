@@ -6,6 +6,8 @@ import signal
 import sys
 from typing import Dict, Any
 import time
+import asyncio
+from functools import lru_cache
 
 from app.api.endpoints import router as api_router, auth, mcp, plugins
 from app.core.logging import LogManager
@@ -34,7 +36,11 @@ app.add_middleware(
 )
 
 # Inicializar servicios
-mcp_service = MCPService()
+@lru_cache()
+def get_mcp_service():
+    return MCPService()
+
+mcp_service = get_mcp_service()
 
 # Manejadores de señales para apagado graceful
 def signal_handler(sig, frame):
@@ -51,11 +57,14 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     process_time = time.time() - start_time
     
-    LogManager.log_request(
-        method=request.method,
-        url=str(request.url),
-        status_code=response.status_code,
-        process_time=process_time
+    # Usar asyncio.create_task para no bloquear la respuesta
+    asyncio.create_task(
+        LogManager.log_request(
+            method=request.method,
+            url=str(request.url),
+            status_code=response.status_code,
+            process_time=process_time
+        )
     )
     
     return response
@@ -72,8 +81,8 @@ async def error_handler(request: Request, call_next):
         return await call_next(request)
     except Exception as e:
         LogManager.log_error("api", str(e))
-        # Notificar a los plugins sobre el error
-        plugin_manager.fire_hook("mcp_error", str(e), request=request)
+        # Notificar a los plugins sobre el error de forma asíncrona
+        asyncio.create_task(plugin_manager.fire_hook("mcp_error", str(e), request=request))
         return JSONResponse(
             status_code=500,
             content={"detail": str(e)}
@@ -102,7 +111,7 @@ async def startup_event():
     if settings.PLUGINS_ENABLED:
         plugin_manager.load_plugins()
         # Notificar a los plugins sobre el inicio
-        plugin_manager.fire_hook("mcp_startup")
+        await plugin_manager.fire_hook("mcp_startup")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -111,7 +120,7 @@ async def shutdown_event():
     # Apagar plugins si están habilitados
     if settings.PLUGINS_ENABLED:
         # Notificar a los plugins sobre el apagado
-        plugin_manager.fire_hook("mcp_shutdown")
+        await plugin_manager.fire_hook("mcp_shutdown")
         plugin_manager.shutdown()
 
 # Incluir routers
@@ -126,12 +135,18 @@ async def health_check():
     """
     Verifica el estado de salud del servidor
     """
+    # Ejecutar verificaciones en paralelo
+    mcp_status, logging_status = await asyncio.gather(
+        mcp_service.get_status(),
+        LogManager.is_available()
+    )
+    
     return {
         "status": "ok",
         "version": "1.1.0",
         "services": {
-            "mcp": await mcp_service.get_status(),
-            "logging": LogManager.is_available(),
+            "mcp": mcp_status,
+            "logging": logging_status,
             "plugins": len(plugin_manager.plugins) if settings.PLUGINS_ENABLED else 0
         }
     }
@@ -149,14 +164,20 @@ async def status():
                 "enabled": plugin.enabled
             }
     
+    # Ejecutar verificaciones en paralelo
+    mcp_status, logging_status = await asyncio.gather(
+        mcp_service.get_status(),
+        LogManager.is_available()
+    )
+    
     return {
         "status": "ok",
         "version": "1.1.0",
         "environment": settings.ENVIRONMENT,
         "debug": settings.DEBUG,
         "services": {
-            "mcp": await mcp_service.get_status(),
-            "logging": LogManager.is_available(),
+            "mcp": mcp_status,
+            "logging": logging_status,
             "plugins": plugins_status
         }
     }
@@ -166,5 +187,6 @@ if __name__ == "__main__":
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=settings.DEBUG
+        reload=settings.DEBUG,
+        workers=settings.WORKERS
     ) 
