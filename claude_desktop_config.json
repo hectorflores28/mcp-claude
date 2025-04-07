@@ -122,5 +122,12 @@
     "type": "api_key",
     "header": "X-API-Key",
     "key": "your_api_key_here"
+  },
+  "mcp_endpoint": "http://localhost:8000/api/mcp",
+  "api_key": "tu-clave-secreta",
+  "cache_enabled": true,
+  "retry_policy": {
+    "max_attempts": 3,
+    "delay": 1.5
   }
 } 
