@@ -58,131 +58,114 @@ class LogManager:
             LogManager._initialized = True
     
     @classmethod
-    def setup_logger(cls, log_dir: str = "logs") -> None:
+    def setup_logger(cls) -> None:
         """Configura el sistema de logs"""
-        instance = cls()
-        
         # Crear directorio de logs si no existe
-        log_path = Path(log_dir)
-        log_path.mkdir(exist_ok=True)
+        log_path = Path(settings.LOG_DIR)
+        log_path.mkdir(exist_ok=True, parents=True)
+        
+        # Configurar logger
+        logger = logging.getLogger("mcp_claude")
+        logger.setLevel(logging.INFO)
+        
+        # Limpiar handlers existentes
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
         
         # Handler para archivo
         file_handler = logging.FileHandler(
-            log_path / f"mcp_claude_{datetime.now().strftime('%Y%m%d')}.log"
+            log_path / "app.log"
         )
-        file_handler.setFormatter(ClaudeLogFormatter())
-        instance.logger.addHandler(file_handler)
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        logger.addHandler(file_handler)
         
         # Handler para consola
         console_handler = logging.StreamHandler()
-        console_handler.setFormatter(ClaudeLogFormatter())
-        instance.logger.addHandler(console_handler)
+        console_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        logger.addHandler(console_handler)
+        
+        # Registrar inicio
+        logger.info("Sistema de logging inicializado")
     
     @classmethod
     def log_api_request(cls, method: str, path: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Registra una solicitud API"""
-        instance = cls()
-        extra_data = {
-            "type": "api_request",
-            "method": method,
-            "path": path,
-            "data": data
-        }
-        instance.logger.info("API Request", extra={"extra_data": extra_data})
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"API Request: {method} {path}")
+        if data:
+            logger.info(f"Request Data: {json.dumps(data)[:500]}...")
     
     @classmethod
     def log_api_response(cls, method: str, path: str, status_code: int, response_time: float) -> None:
         """Registra una respuesta API"""
-        instance = cls()
-        extra_data = {
-            "type": "api_response",
-            "method": method,
-            "path": path,
-            "status_code": status_code,
-            "response_time": response_time
-        }
-        instance.logger.info("API Response", extra={"extra_data": extra_data})
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"API Response: {method} {path} - Status: {status_code} - Time: {response_time:.2f}s")
     
     @classmethod
     def log_claude_request(cls, prompt: str, model: str, max_tokens: int) -> None:
         """Registra una solicitud a Claude"""
-        instance = cls()
-        extra_data = {
-            "type": "claude_request",
-            "model": model,
-            "max_tokens": max_tokens,
-            "prompt_length": len(prompt)
-        }
-        instance.logger.info("Claude Request", extra={"extra_data": extra_data})
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"Claude Request: Model: {model}, Max Tokens: {max_tokens}")
+        logger.info(f"Prompt: {prompt[:200]}...")
     
     @classmethod
     def log_claude_response(cls, model: str, response_time: float, token_count: int) -> None:
         """Registra una respuesta de Claude"""
-        instance = cls()
-        extra_data = {
-            "type": "claude_response",
-            "model": model,
-            "response_time": response_time,
-            "token_count": token_count
-        }
-        instance.logger.info("Claude Response", extra={"extra_data": extra_data})
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"Claude Response: Model: {model}, Time: {response_time:.2f}s, Tokens: {token_count}")
     
     @classmethod
     def log_error(cls, error_type: str, error_message: str, stack_trace: Optional[str] = None) -> None:
         """Registra un error"""
-        instance = cls()
-        extra_data = {
-            "type": "error",
-            "error_type": error_type,
-            "stack_trace": stack_trace
-        }
-        instance.logger.error(error_message, extra={"extra_data": extra_data})
+        logger = logging.getLogger("mcp_claude")
+        logger.error(f"Error: {error_type} - {error_message}")
+        if stack_trace:
+            logger.error(f"Stack Trace: {stack_trace}")
     
     @classmethod
     def log_info(cls, message: str, **kwargs) -> None:
         """Registra un mensaje informativo"""
-        instance = cls()
-        instance.logger.info(message, extra={"extra_data": kwargs})
+        logger = logging.getLogger("mcp_claude")
+        logger.info(message, **kwargs)
     
     @classmethod
     def log_warning(cls, message: str, **kwargs) -> None:
         """Registra un mensaje de advertencia"""
-        instance = cls()
-        instance.logger.warning(message, extra={"extra_data": kwargs})
+        logger = logging.getLogger("mcp_claude")
+        logger.warning(message, **kwargs)
     
     @classmethod
     def log_debug(cls, message: str, **kwargs) -> None:
         """Registra un mensaje de depuración"""
-        instance = cls()
-        instance.logger.debug(message, extra={"extra_data": kwargs})
-
+        logger = logging.getLogger("mcp_claude")
+        logger.debug(message, **kwargs)
+    
     @classmethod
     def log_search(cls, query: str, results: list):
-        """
-        Registra una búsqueda
-        """
-        cls._logger.info(f"Search: {query} - Results: {len(results)}")
-        cls._markdown_logger.log_search(query, results)
+        """Registra una búsqueda"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"Search: {query} - Results: {len(results)}")
     
     @classmethod
     def log_file_operation(cls, operation: str, filename: str, details: str = None):
-        """
-        Registra una operación de archivo
-        """
-        message = f"File Operation: {operation} - File: {filename}"
+        """Registra una operación de archivo"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"File Operation: {operation} - {filename}")
         if details:
-            message += f" - Details: {details}"
-        cls._logger.info(message)
-        cls._markdown_logger.log_file_operation(operation, filename, details)
+            logger.info(f"Details: {details}")
     
     @classmethod
     def log_claude_operation(cls, operation: str, prompt: str, response: str):
-        """
-        Registra una operación de Claude
-        """
-        cls._logger.info(f"Claude Operation: {operation}")
-        cls._markdown_logger.log_claude_operation(operation, prompt, response)
-
+        """Registra una operación de Claude"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"Claude Operation: {operation}")
+        logger.info(f"Prompt: {prompt[:200]}...")
+        logger.info(f"Response: {response[:200]}...")
+    
     @classmethod
     def log_model_request(
         cls,
@@ -190,32 +173,21 @@ class LogManager:
         prompt: str,
         parameters: Dict[str, Any]
     ) -> None:
-        """Registra una solicitud al modelo."""
-        cls._logger.info(
-            "Model Request",
-            extra={
-                "type": "model_request",
-                "model": model,
-                "prompt": prompt,
-                "parameters": parameters
-            }
-        )
-        cls._markdown_logger.log_model_request(model, prompt, parameters)
-
+        """Registra una solicitud de modelo"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"Model Request: {model}")
+        logger.info(f"Parameters: {json.dumps(parameters)}")
+        logger.info(f"Prompt: {prompt[:200]}...")
+    
     @classmethod
-    def log_info(cls, message: str, details: Optional[Dict[str, Any]] = None) -> None:
-        """Registra un mensaje informativo."""
-        cls._logger.info(
-            message,
-            extra={"type": "info", "details": details}
-        )
-        cls._markdown_logger.log_info(message, details)
-
+    def log_mcp_request(cls, endpoint: str, data: Dict[str, Any]) -> None:
+        """Registra una solicitud MCP"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"MCP Request: {endpoint}")
+        logger.info(f"Data: {json.dumps(data)[:500]}...")
+    
     @classmethod
-    def log_warning(cls, message: str, details: Optional[Dict[str, Any]] = None) -> None:
-        """Registra una advertencia."""
-        cls._logger.warning(
-            message,
-            extra={"type": "warning", "details": details}
-        )
-        cls._markdown_logger.log_warning(message, details) 
+    def log_mcp_response(cls, endpoint: str, status: int, response_time: float) -> None:
+        """Registra una respuesta MCP"""
+        logger = logging.getLogger("mcp_claude")
+        logger.info(f"MCP Response: {endpoint} - Status: {status} - Time: {response_time:.2f}s") 

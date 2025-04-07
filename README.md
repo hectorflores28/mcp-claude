@@ -1,37 +1,24 @@
 # MCP-Claude
 
-Sistema de gestión de prompts para Claude 3.5 Sonnet.
+Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
 
 ## Estado Actual
 
 ### Implementado
 - ✅ Estructura base del proyecto
-- ✅ Configuración de Docker y Docker Compose
+- ✅ Configuración de FastAPI
 - ✅ Sistema de logs estandarizado
-- ✅ Sistema de métricas
-- ✅ Pruebas unitarias para:
-  - ✅ ClaudeClient
-  - ✅ FileSystemService
-  - ✅ SearchService
-  - ✅ CacheService
-  - ✅ Sistema de logs
-  - ✅ Sistema de métricas
-- ✅ Servicios principales:
-  - ✅ Sistema de caché
-  - ✅ Sistema de búsqueda
-  - ✅ Sistema de archivos
-  - ✅ Sistema de logs
-  - ✅ Sistema de métricas
+- ✅ Integración con API de Claude
+- ✅ Endpoints para Claude Desktop MCP
+- ✅ Sistema de archivos
+- ✅ Autenticación con API Key
 
 ### En Progreso
-- 🔄 Integración con API de Claude
-- 🔄 Sistema de gestión de prompts
-- 🔄 Interfaz de usuario
+- 🔄 Mejora de la integración con Claude Desktop
+- 🔄 Optimización del sistema de logs
+- 🔄 Documentación de API
 
 ### Pendiente
-- ⏳ Sistema de autenticación
-- ⏳ Sistema de monitoreo en tiempo real
-- ⏳ Documentación completa
 - ⏳ Pruebas de integración
 - ⏳ Pruebas de rendimiento
 - ⏳ Despliegue en producción
@@ -39,8 +26,8 @@ Sistema de gestión de prompts para Claude 3.5 Sonnet.
 ## Requisitos
 
 - Python 3.10+
-- Docker y Docker Compose
 - API Key de Claude
+- Claude Desktop
 
 ## Instalación
 
@@ -61,10 +48,37 @@ cp .env.example .env
 pip install -r requirements.txt
 ```
 
-4. Ejecutar con Docker:
+4. Crear directorios necesarios:
 ```bash
-docker-compose up -d
+mkdir logs data temp uploads
 ```
+
+5. Ejecutar el servidor:
+```bash
+python -m app.main
+```
+
+## Integración con Claude Desktop
+
+1. Configurar Claude Desktop:
+   - Abrir Claude Desktop
+   - Ir a Settings > Developers
+   - Configurar MCP:
+     ```json
+     {
+         "mcp": {
+             "enabled": true,
+             "url": "http://127.0.0.1:8000",
+             "api_key": "tu-api-key-aquí"
+         }
+     }
+     ```
+
+2. Verificar la conexión:
+   - Acceder a `http://127.0.0.1:8000/api/health`
+   - Acceder a `http://127.0.0.1:8000/api/mcp/status`
+
+3. Reiniciar Claude Desktop después de la configuración
 
 ## Estructura del Proyecto
 
@@ -72,113 +86,50 @@ docker-compose up -d
 mcp-claude/
 ├── app/
 │   ├── api/
+│   │   └── endpoints/
+│   │       ├── claude.py
+│   │       ├── filesystem.py
+│   │       └── ...
 │   ├── core/
-│   │   ├── config/
-│   │   ├── logging/
-│   │   └── security/
-│   ├── models/
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   └── security.py
 │   ├── services/
-│   └── utils/
+│   │   ├── claude_service.py
+│   │   └── ...
+│   └── main.py
 ├── data/
-│   ├── prompts/
-│   ├── cache/
-│   └── metrics/
-├── docs/
 ├── logs/
-│   ├── app/
-│   ├── access/
-│   └── error/
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── .env.example
-├── docker-compose.yml
-├── Dockerfile
+├── temp/
+├── uploads/
+├── .env
 └── requirements.txt
 ```
 
-## Uso
+## Endpoints Principales
 
-```python
-from app.services.claude_client import ClaudeClient
+- `/api/health` - Estado del servidor
+- `/api/mcp/status` - Estado para integración con Claude Desktop
+- `/api/claude/status` - Estado del servicio de Claude
+- `/api/claude/mcp/completion` - Endpoint para completado de Claude
 
-client = ClaudeClient(api_key="tu-api-key")
-response = client.generate("Tu prompt aquí")
-print(response)
-```
+## Solución de Problemas
 
-## Pruebas
+### El servidor no responde
+- Verificar que el servidor esté ejecutándose
+- Comprobar que no haya otro servicio usando el puerto 8000
+- Verificar los logs en `logs/app.log`
 
-```bash
-# Ejecutar todas las pruebas
-pytest
+### Claude Desktop no se conecta
+- Verificar la configuración en `claude_desktop_config.json`
+- Asegurarse de que la API_KEY coincida en ambos lados
+- Usar `127.0.0.1` en lugar de `localhost`
+- Reiniciar Claude Desktop después de cambios en la configuración
 
-# Ejecutar pruebas unitarias
-pytest tests/unit
-
-# Ejecutar pruebas de integración
-pytest tests/integration
-
-# Ejecutar pruebas e2e
-pytest tests/e2e
-```
-
-## Contribución
-
-1. Fork el repositorio
-2. Crear una rama para tu feature (`git checkout -b feature/amazing-feature`)
-3. Commit tus cambios (`git commit -m 'Add some amazing feature'`)
-4. Push a la rama (`git push origin feature/amazing-feature`)
-5. Abrir un Pull Request
+### No se registran logs
+- Verificar que el directorio `logs` existe y tiene permisos de escritura
+- Comprobar que `LOG_LEVEL` está configurado correctamente en `.env`
 
 ## Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
-
-## Características Implementadas
-
-- Sistema de logging con rotación de archivos
-- Sistema de métricas y monitoreo
-- Procesamiento asíncrono de solicitudes
-- Pruebas unitarias para servicios principales
-
-## En Desarrollo
-
-- Integración con API de Claude
-- Sistema de gestión de prompts
-- Interfaz de usuario
-
-## Tareas Pendientes
-
-- Sistema de monitoreo en tiempo real
-- Sistema de autenticación y autorización
-- Pruebas de rendimiento y optimización
-- Documentación de API
-
-## Estructura del Proyecto
-
-```
-mcp-claude/
-├── app/
-│   ├── api/            # Endpoints de la API
-│   ├── core/           # Funcionalidad central
-│   │   ├── logging/    # Sistema de logging
-│   │   └── config/     # Configuración
-│   ├── services/       # Servicios de la aplicación
-│   │   ├── metrics.py  # Servicio de métricas
-│   │   └── async_processor.py  # Procesamiento asíncrono
-│   └── utils/          # Utilidades
-├── data/
-│   ├── metrics/        # Datos de métricas
-│   └── cache/          # Caché de respuestas
-├── logs/               # Archivos de log
-│   ├── app/           
-│   ├── access/
-│   └── error/
-├── tests/              # Pruebas
-│   ├── unit/
-│   └── integration/
-├── requirements.txt    # Dependencias
-└── README.md
-```

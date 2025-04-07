@@ -129,15 +129,54 @@ async def mcp_status():
     """
     Endpoint de estado para la integración con Claude Desktop MCP
     """
-    return {
+    start_time = time.time()
+    
+    # Registrar la solicitud
+    LogManager.log_mcp_request(
+        endpoint="/api/mcp/status",
+        data={"method": "GET"}
+    )
+    
+    # Verificar servicios
+    services_status = {
+        "claude": "available",
+        "filesystem": "available",
+        "logging": "available"
+    }
+    
+    # Verificar configuración
+    config_status = {
+        "host": settings.HOST,
+        "port": settings.PORT,
+        "debug": settings.DEBUG,
+        "cors_enabled": True,
+        "api_key_configured": bool(settings.API_KEY)
+    }
+    
+    response_data = {
         "status": "ok",
         "version": "1.0.0",
-        "services": {
-            "claude": "available",
-            "filesystem": "available",
-            "logging": "available"
+        "timestamp": time.time(),
+        "services": services_status,
+        "config": config_status,
+        "endpoints": {
+            "health": "/api/health",
+            "status": "/api/mcp/status",
+            "claude": "/api/claude",
+            "filesystem": "/api/filesystem",
+            "tools": "/api/tools"
         }
     }
+    
+    # Registrar la respuesta
+    response_time = time.time() - start_time
+    LogManager.log_mcp_response(
+        endpoint="/api/mcp/status",
+        status=200,
+        response_time=response_time
+    )
+    
+    return response_data
 
 if __name__ == "__main__":
     uvicorn.run(
