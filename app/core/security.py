@@ -6,6 +6,8 @@ from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import OAuth2PasswordBearer, APIKeyHeader
 from app.core.config import settings
 from app.core.logging import LogManager
+import hashlib
+import time
 
 # Configuración de seguridad
 api_key_header = APIKeyHeader(name="X-API-Key")
@@ -69,11 +71,44 @@ def verify_token(token: str) -> Dict[str, Any]:
         HTTPException: Si el token es inválido o ha expirado
     """
     try:
+        # Verificar si el token está en la lista negra
+        if is_token_blacklisted(token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token ha sido revocado",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Decodificar el token con opciones adicionales
         payload = jwt.decode(
             token, 
             settings.JWT_SECRET_KEY, 
-            algorithms=[settings.JWT_ALGORITHM]
+            algorithms=[settings.JWT_ALGORITHM],
+            options={
+                "verify_iss": True,
+                "verify_aud": True,
+                "verify_iat": True,
+                "verify_nbf": True,
+                "verify_exp": True
+            }
         )
+        
+        # Verificar emisor
+        if payload.get("iss") != settings.JWT_ISSUER:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Emisor de token inválido",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        # Verificar audiencia
+        if settings.JWT_AUDIENCE and payload.get("aud") != settings.JWT_AUDIENCE:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Audiencia de token inválida",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -81,7 +116,8 @@ def verify_token(token: str) -> Dict[str, Any]:
             detail="Token ha expirado",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    except jwt.JWTError:
+    except jwt.JWTError as e:
+        LogManager.log_error("security", f"Error de validación JWT: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No se pudo validar el token",
@@ -118,4 +154,64 @@ async def validate_api_keys(request: Dict[str, Any]) -> bool:
     if anthropic_key and not validate_api_key(anthropic_key, get_anthropic_api_key()):
         return False
     
-    return True 
+    return True
+
+def is_token_blacklisted(token: str) -> bool:
+    """
+    Verifica si un token está en la lista negra.
+    
+    Args:
+        token: Token JWT a verificar
+        
+    Returns:
+        True si el token está en la lista negra, False en caso contrario
+    """
+    try:
+        # Obtener el hash del token para usar como clave
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        
+        # Verificar en Redis si el token está en la lista negra
+        from app.core.cache import cache
+        return cache.get(f"blacklist:{token_hash}") is not None
+    except Exception as e:
+        LogManager.log_error("security", f"Error al verificar lista negra: {str(e)}")
+        return False
+
+def blacklist_token(token: str, expires_in: Optional[int] = None) -> bool:
+    """
+    Agrega un token a la lista negra.
+    
+    Args:
+        token: Token JWT a agregar a la lista negra
+        expires_in: Tiempo en segundos para mantener el token en la lista negra
+        
+    Returns:
+        True si se agregó correctamente, False en caso contrario
+    """
+    try:
+        # Obtener el hash del token para usar como clave
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        
+        # Decodificar el token para obtener su tiempo de expiración
+        payload = jwt.decode(
+            token, 
+            settings.JWT_SECRET_KEY, 
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"verify_signature": False}
+        )
+        
+        # Calcular el tiempo de expiración del token
+        exp = payload.get("exp", 0)
+        now = int(time.time())
+        ttl = exp - now if exp > now else 3600  # 1 hora por defecto
+        
+        # Usar el tiempo de expiración proporcionado si está disponible
+        if expires_in is not None:
+            ttl = expires_in
+            
+        # Agregar a la lista negra en Redis
+        from app.core.cache import cache
+        return cache.set(f"blacklist:{token_hash}", True, expire=ttl)
+    except Exception as e:
+        LogManager.log_error("security", f"Error al agregar token a lista negra: {str(e)}")
+        return False 

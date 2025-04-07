@@ -1,89 +1,78 @@
 # Tareas Pendientes
 
-## Prioridad Alta
+## Alta Prioridad
 
 ### Seguridad
-- [x] Implementar autenticación JWT
-- [x] Configurar rate limiting con Redis
-- [ ] Implementar validación de tokens JWT
-- [ ] Mejorar el sistema de rate limiting con IP
-- [ ] Implementar blacklist de tokens
+- [x] Implementar validación de tokens JWT
+- [x] Mejorar el sistema de rate limiting
+- [x] Implementar lista negra de tokens
+- [ ] Implementar validación de firmas digitales
+- [ ] Mejorar el manejo de secretos y claves
 
 ### Rendimiento
-- [x] Implementar caché con Redis
-- [ ] Optimizar consultas a Redis
-- [ ] Implementar compresión de respuestas
-- [ ] Mejorar el manejo de conexiones Redis
+- [x] Optimizar consultas a Redis
+- [x] Mejorar el manejo de conexiones
+- [ ] Implementar caché de segundo nivel
+- [ ] Optimizar serialización JSON
 
 ### Integración con Claude Desktop
-- [x] Crear archivo de configuración
-- [ ] Mejorar detección automática
-- [ ] Implementar reconexión automática
-- [ ] Agregar soporte para más herramientas
+- [x] Mejorar detección automática
+- [x] Agregar soporte para más herramientas
+- [ ] Implementar sistema de plugins
+- [ ] Mejorar manejo de errores
 
 ## Prioridad Media
 
 ### Documentación
-- [x] Actualizar README.md
 - [ ] Documentar API con ejemplos
 - [ ] Crear guía de contribución
-- [ ] Documentar configuración de Redis
+- [ ] Documentar proceso de despliegue
+- [ ] Crear guía de seguridad
 
 ### Testing
-- [x] Crear estructura de tests
-- [ ] Implementar tests unitarios
-- [ ] Implementar tests de integración
+- [ ] Implementar pruebas unitarias
+- [ ] Implementar pruebas de integración
 - [ ] Configurar CI/CD
+- [ ] Implementar pruebas de rendimiento
 
 ### Monitoreo
-- [ ] Implementar métricas de Redis
-- [ ] Agregar dashboard de monitoreo
-- [ ] Configurar alertas
-- [ ] Mejorar sistema de logs
+- [x] Implementar métricas de Redis
+- [x] Mejorar sistema de logging
+- [ ] Implementar alertas
+- [ ] Crear dashboard de monitoreo
 
 ## Prioridad Baja
 
 ### Mejoras de Usuario
 - [ ] Agregar página de estado
-- [ ] Implementar panel de administración
+- [ ] Crear panel de administración
 - [ ] Mejorar mensajes de error
-- [ ] Agregar documentación interactiva
+- [ ] Implementar sistema de notificaciones
 
 ### Extensibilidad
 - [ ] Crear sistema de plugins
 - [ ] Implementar webhooks
-- [ ] Agregar soporte para más bases de datos
-- [ ] Mejorar sistema de eventos
+- [ ] Mejorar API de extensiones
+- [ ] Crear marketplace de plugins
 
 ### Optimización
 - [ ] Optimizar serialización JSON
+- [ ] Implementar connection pooling
 - [ ] Mejorar manejo de memoria
-- [ ] Implementar pool de conexiones
-- [ ] Optimizar consultas a la base de datos
+- [ ] Optimizar consultas a base de datos
 
 ## Tareas Completadas
-
-### Protocolo MCP
-- [x] Implementar protocolo MCP v1.1
-- [x] Crear modelos de datos
-- [x] Implementar endpoints básicos
-- [x] Agregar validación de solicitudes
-
-### Seguridad Básica
-- [x] Implementar autenticación con API Key
-- [x] Configurar CORS
-- [x] Implementar rate limiting básico
-- [x] Agregar validación de parámetros
-
-### Estructura del Proyecto
-- [x] Organizar código en módulos
+- [x] Implementar protocolo MCP
+- [x] Implementar características básicas de seguridad
+- [x] Organizar estructura del proyecto
 - [x] Implementar sistema de logging
-- [x] Crear configuración centralizada
-- [x] Establecer estructura de tests
+- [x] Implementar caché con Redis
+- [x] Implementar rate limiting
+- [x] Implementar autenticación JWT
+- [x] Implementar lista negra de tokens
 
 ## Notas Adicionales
-
 - Las tareas están organizadas por prioridad y categoría
 - Se recomienda revisar esta lista después de completar tareas significativas
-- Las tareas pueden ser reordenadas según las necesidades del proyecto
-- Se deben mantener actualizados los tests al implementar nuevas características 
+- Mantener actualizadas las pruebas después de cada cambio
+- Documentar cualquier cambio en la API 

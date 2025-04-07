@@ -1,6 +1,6 @@
 # MCP-Claude
 
-Servidor MCP (Multi-Channel Protocol) para Claude Desktop v1.1.0 (Beta)
+Servidor MCP (Model Context Protocol) para Claude Desktop v1.1.0 (Beta)
 
 ## Características
 

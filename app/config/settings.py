@@ -46,6 +46,23 @@ class Settings(BaseSettings):
     RATE_LIMIT_WINDOW: int = 60  # 1 minuto
     RATE_LIMIT_MAX_REQUESTS: int = 100
     
+    # Configuración de JWT
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ISSUER: str = "mcp-claude"
+    JWT_AUDIENCE: str = "claude-desktop"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Configuración de seguridad
+    API_KEY: str = os.getenv("API_KEY", "your-api-key-here")
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+    
+    # Configuración del servidor
+    HOST: str = os.getenv("HOST", "0.0.0.0")
+    PORT: int = int(os.getenv("PORT", "8000"))
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

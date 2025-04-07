@@ -7,11 +7,15 @@ import sys
 from typing import Dict, Any
 import time
 
-from app.api.endpoints import router as api_router
+from app.api.endpoints import router as api_router, auth
 from app.core.logging import LogManager
 from app.core.config import settings
 from app.services.mcp_service import MCPService
 from app.middleware.auth import verify_auth
+from app.middleware.rate_limit import rate_limit_middleware
+from app.middleware.logging import LoggingMiddleware
+from app.middleware.error_handler import ErrorHandlerMiddleware
+from app.middleware.auth import AuthMiddleware
 
 app = FastAPI(
     title="MCP-Claude API",
@@ -55,6 +59,11 @@ async def log_requests(request: Request, call_next):
     
     return response
 
+# Middleware para rate limiting
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    return await rate_limit_middleware(request, call_next)
+
 # Middleware para manejo de errores
 @app.middleware("http")
 async def error_handler(request: Request, call_next):
@@ -92,6 +101,7 @@ async def shutdown_event():
 
 # Incluir routers
 app.include_router(api_router, prefix="/api")
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 
 # Endpoints de salud y estado
 @app.get("/health")
