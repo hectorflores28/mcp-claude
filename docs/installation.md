@@ -174,6 +174,7 @@ METRICS_CONFIG = {
 - Verificar que la API key esté correctamente configurada en .env
 - Asegurar que la API key tenga los permisos necesarios
 - Verificar que la cuenta tenga fondos suficientes
+- Comprobar la configuración de cuotas en Anthropic Console
 
 ### 2. Problemas de Redis
 
