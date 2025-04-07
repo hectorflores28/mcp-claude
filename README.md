@@ -5,7 +5,7 @@ Sistema de integración con Claude 3.5 Sonnet para Claude Desktop, implementando
 ## Estado del Proyecto
 
 ### Versión Actual
-- Versión: 0.1.0 (Alpha)
+- Versión: 1.1.0 (Beta)
 - Estado: En desarrollo activo
 - Última actualización: 2024-04-07
 
@@ -19,19 +19,24 @@ Sistema de integración con Claude 3.5 Sonnet para Claude Desktop, implementando
 - Autenticación con API Key
 - Endpoint de estado MCP
 - Sistema de logging básico
+- Protocolo MCP completo (v1.1)
+- Sistema de recursos y herramientas
+- Límite de tasa por método/herramienta
+- Sistema de caché para resultados
+- Registro de operaciones
+- Configuración para Claude Desktop
 
 ### En Desarrollo 🔄
-- Implementación del protocolo MCP completo
-- Sistema de recursos y herramientas
 - Mejora de la integración con Claude Desktop
 - Optimización del sistema de logs
 - Documentación de API
+- Pruebas unitarias y de integración
+- Mejoras de seguridad avanzadas
 
 ### Próximas Versiones
-- v0.2.0: Implementación completa del protocolo MCP
-- v0.3.0: Sistema de recursos y herramientas
-- v0.4.0: Mejoras de seguridad y rendimiento
-- v1.0.0: Versión estable para producción
+- v1.2.0: Mejoras de seguridad y rendimiento
+- v1.3.0: Documentación completa y pruebas
+- v2.0.0: Versión estable para producción
 
 Para ver la lista completa de tareas pendientes, consulta [PENDING.md](PENDING.md).
 
@@ -108,13 +113,19 @@ mcp-claude/
 │   │   └── endpoints/
 │   │       ├── claude.py
 │   │       ├── filesystem.py
+│   │       ├── mcp.py
 │   │       └── ...
 │   ├── core/
 │   │   ├── config.py
 │   │   ├── logging.py
+│   │   ├── mcp_config.py
 │   │   └── security.py
+│   ├── schemas/
+│   │   ├── mcp.py
+│   │   └── ...
 │   ├── services/
 │   │   ├── claude_service.py
+│   │   ├── mcp_service.py
 │   │   └── ...
 │   └── main.py
 ├── data/
@@ -124,6 +135,7 @@ mcp-claude/
 ├── tests/
 ├── docs/
 ├── .env
+├── claude_desktop_config.json
 └── requirements.txt
 ```
 
@@ -131,17 +143,43 @@ mcp-claude/
 
 - `/api/health` - Estado del servidor
 - `/api/mcp/status` - Estado para integración con Claude Desktop
+- `/api/mcp/execute` - Ejecución de herramientas MCP
+- `/api/mcp/operations` - Consulta de operaciones recientes
 - `/api/claude/status` - Estado del servicio de Claude
 - `/api/claude/mcp/completion` - Endpoint para completado de Claude
+
+## Características del Protocolo MCP
+
+### Versión 1.1
+- Soporte para múltiples versiones del protocolo
+- Sistema de recursos con tipos y niveles de acceso
+- Herramientas con parámetros y recursos requeridos
+- Límite de tasa por método/herramienta
+- Sistema de caché para resultados
+- Registro de operaciones con timestamps
+- Validación de solicitudes y respuestas
+- Manejo de errores estandarizado
+
+### Herramientas Disponibles
+- `buscar_en_brave`: Búsqueda web usando Brave Search
+- `generar_markdown`: Generación de contenido en formato Markdown
+- `analizar_texto`: Análisis de texto usando Claude
+
+### Recursos Disponibles
+- `filesystem`: Operaciones de sistema de archivos
+- `claude`: Operaciones con la API de Claude
+- `search`: Operaciones de búsqueda
+- `cache`: Operaciones de caché
 
 ## Control de Versiones
 
 ### Versiones
 - v0.1.0 (Alpha) - Versión inicial con funcionalidades básicas
-- v0.2.0 (Planned) - Implementación completa del protocolo MCP
-- v0.3.0 (Planned) - Sistema de recursos y herramientas
-- v0.4.0 (Planned) - Mejoras de seguridad y rendimiento
-- v1.0.0 (Planned) - Versión estable para producción
+- v1.0.0 (Beta) - Implementación completa del protocolo MCP
+- v1.1.0 (Beta) - Mejoras de rendimiento y seguridad
+- v1.2.0 (Planned) - Mejoras de seguridad y rendimiento
+- v1.3.0 (Planned) - Documentación completa y pruebas
+- v2.0.0 (Planned) - Versión estable para producción
 
 ### Ramas
 - `main` - Rama principal, código estable
