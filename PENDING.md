@@ -76,12 +76,13 @@
 - [x] Configurar CI/CD con GitHub Actions
 - [x] Crear guía de contribución
 - [x] Implementar sistema de plugins para extensibilidad
+- [x] Implementar sistema de caché distribuido con Redis
 
 ## Próximos Pasos
 1. Crear guía de contribución y proceso de despliegue
 2. Mejorar el manejo de errores y notificaciones
 3. Optimizar rendimiento y serialización
-4. Implementar sistema de caché distribuido
+4. Implementar lista negra de tokens
 5. Implementar sistema de dependencias entre plugins
 
 ## Detalles de Implementación
@@ -110,7 +111,7 @@
 - [ ] Crear documentación de arquitectura
 
 ### Optimización
-- [ ] Implementar caché distribuido
+- [x] Implementar caché distribuido
 - [ ] Optimizar serialización de datos
 - [ ] Mejorar manejo de conexiones
 - [ ] Implementar compresión de respuestas

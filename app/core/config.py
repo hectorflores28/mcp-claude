@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
+    # Configuración de Redis
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", "0"))
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
+    REDIS_SSL: bool = os.getenv("REDIS_SSL", "false").lower() == "true"
+    REDIS_TIMEOUT: int = int(os.getenv("REDIS_TIMEOUT", "5"))
+    REDIS_MAX_CONNECTIONS: int = int(os.getenv("REDIS_MAX_CONNECTIONS", "10"))
+    
     # Configuración de directorios
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
     LOG_DIR: Path = BASE_DIR / os.getenv("LOG_DIR", "logs")

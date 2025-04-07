@@ -72,12 +72,15 @@ uvicorn app.main:app --reload
 | `API_KEY` | Clave API para autenticación | - |
 | `REDIS_HOST` | Host de Redis | localhost |
 | `REDIS_PORT` | Puerto de Redis | 6379 |
-| `REDIS_PASSWORD`: Contraseña de Redis (opcional) | - | - |
-| `REDIS_SSL`: Habilitar SSL para Redis (default: false) | - | - |
+| `REDIS_DB` | Base de datos Redis | 0 |
+| `REDIS_PASSWORD` | Contraseña de Redis | - |
+| `REDIS_SSL` | Habilitar SSL para Redis | false |
+| `REDIS_TIMEOUT` | Timeout de conexión (segundos) | 5 |
+| `REDIS_MAX_CONNECTIONS` | Máximo de conexiones | 10 |
 | `LOG_LEVEL` | Nivel de logging | INFO |
-| `LOG_DIR`: Directorio de logs (default: logs) | - | - |
-| `LOG_MAX_BYTES`: Tamaño máximo de archivo de log (default: 10MB) | - | - |
-| `LOG_BACKUP_COUNT`: Número de archivos de backup (default: 5) | - | - |
+| `LOG_DIR` | Directorio de logs | logs |
+| `LOG_MAX_BYTES` | Tamaño máximo de archivo de log | 10MB |
+| `LOG_BACKUP_COUNT` | Número de archivos de backup | 5 |
 
 ### Claude Desktop
 
