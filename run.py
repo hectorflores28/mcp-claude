@@ -8,8 +8,7 @@ from app.core.logging import LogManager
 def main():
     # Configurar logging
     LogManager.setup_logger()
-    logger = LogManager()
-    logger.info("Iniciando servidor MCP Claude...")
+    LogManager.log_info("Iniciando servidor MCP Claude...")
     
     try:
         # Configuración de uvicorn
@@ -30,16 +29,16 @@ def main():
         server.run()
         
     except KeyboardInterrupt:
-        logger.info("Servidor detenido por el usuario")
+        LogManager.log_info("Servidor detenido por el usuario")
         if platform.system() == 'Windows':
             os._exit(0)
         else:
             sys.exit(0)
     except Exception as e:
-        logger.error(f"Error al iniciar el servidor: {str(e)}")
+        LogManager.log_error("Error", f"Error al iniciar el servidor: {str(e)}")
         raise
     finally:
-        logger.info("Cerrando servidor...")
+        LogManager.log_info("Cerrando servidor...")
         if platform.system() == 'Windows':
             os._exit(0)
         else:
