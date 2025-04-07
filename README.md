@@ -1,43 +1,67 @@
 # MCP-Claude
 
-Middleware de Control y Procesamiento para Claude API.
+Sistema de gestión de prompts para Claude 3.5 Sonnet.
 
-## Estado del Proyecto
+## Estado Actual
 
-### FASE 1 - Estructura Similar
+### Implementado
+- ✅ Estructura base del proyecto
+- ✅ Configuración de Docker y Docker Compose
+- ✅ Sistema de logs estandarizado
+- ✅ Pruebas unitarias para:
+  - ✅ ClaudeClient
+  - ✅ FileSystemService
+  - ✅ SearchService
+  - ✅ CacheService
+  - ✅ Sistema de logs
+- ✅ Servicios principales:
+  - ✅ Sistema de caché
+  - ✅ Sistema de búsqueda
+  - ✅ Sistema de archivos
+  - ✅ Sistema de logs
 
-#### Implementado ✅
-- Estructura base del proyecto
-- Integración con Claude API
-- Sistema de caché básico con TTL
-- Pruebas unitarias básicas para:
-  - Cliente de Claude
-  - Sistema de archivos
-  - Servicio de búsqueda
-  - Servicio de caché
+### En Progreso
+- 🔄 Integración con API de Claude
+- 🔄 Sistema de gestión de prompts
+- 🔄 Interfaz de usuario
 
-#### En Progreso 🚧
-- Estructura de directorios mejorada
-- Sistema de logs estandarizado
-- Pruebas unitarias completas
-- Documentación de desarrollo
+### Pendiente
+- ⏳ Sistema de autenticación
+- ⏳ Sistema de monitoreo
+- ⏳ Documentación completa
+- ⏳ Pruebas de integración
+- ⏳ Pruebas de rendimiento
+- ⏳ Despliegue en producción
 
-#### Pendiente 📝
-- Implementación de subdirectorios en core/
-- Organización de servicios por tipo
-- Sistema de rotación de logs
-- Pruebas de integración
-- Fixtures comunes
-- Mocks específicos para Claude
+## Requisitos
 
-### FASE 2 - Mejoras de API
+- Python 3.10+
+- Docker y Docker Compose
+- API Key de Claude
 
-#### Pendiente 📝
-- Sistema de manejo de errores
-- Caché avanzado
-- Sistema de métricas
-- Rate limiting
-- Monitoreo en tiempo real
+## Instalación
+
+1. Clonar el repositorio:
+```bash
+git clone https://github.com/tu-usuario/mcp-claude.git
+cd mcp-claude
+```
+
+2. Configurar variables de entorno:
+```bash
+cp .env.example .env
+# Editar .env con tus credenciales
+```
+
+3. Instalar dependencias:
+```bash
+pip install -r requirements.txt
+```
+
+4. Ejecutar con Docker:
+```bash
+docker-compose up -d
+```
 
 ## Estructura del Proyecto
 
@@ -45,59 +69,65 @@ Middleware de Control y Procesamiento para Claude API.
 mcp-claude/
 ├── app/
 │   ├── api/
-│   │   └── endpoints/
 │   ├── core/
 │   │   ├── config/
-│   │   ├── security/
-│   │   └── logging/
+│   │   ├── logging/
+│   │   └── security/
+│   ├── models/
 │   ├── services/
-│   │   ├── ai/
-│   │   ├── cache/
-│   │   ├── filesystem/
-│   │   └── metrics/
-│   ├── schemas/
 │   └── utils/
+├── data/
+│   ├── prompts/
+│   └── cache/
+├── docs/
+├── logs/
+│   ├── app/
+│   ├── access/
+│   └── error/
 ├── tests/
 │   ├── unit/
-│   │   ├── test_api/
-│   │   ├── test_services/
-│   │   └── test_utils/
-│   └── integration/
-├── docs/
-│   ├── api/
-│   ├── development/
-│   └── deployment/
-├── data/
-│   ├── cache/
-│   └── models/
-└── logs/
-    ├── app/
-    ├── access/
-    └── error/
+│   ├── integration/
+│   └── e2e/
+├── .env.example
+├── docker-compose.yml
+├── Dockerfile
+└── requirements.txt
 ```
-
-## Requisitos
-
-- Python 3.8+
-- FastAPI
-- Claude API Key
-- Docker (opcional)
-
-## Instalación
-
-1. Clonar el repositorio
-2. Instalar dependencias: `pip install -r requirements.txt`
-3. Configurar variables de entorno (ver `.env.example`)
-4. Ejecutar: `uvicorn app.main:app --reload`
 
 ## Uso
 
-[Documentación de uso detallada]
+```python
+from app.services.claude_client import ClaudeClient
+
+client = ClaudeClient(api_key="tu-api-key")
+response = client.generate("Tu prompt aquí")
+print(response)
+```
+
+## Pruebas
+
+```bash
+# Ejecutar todas las pruebas
+pytest
+
+# Ejecutar pruebas unitarias
+pytest tests/unit
+
+# Ejecutar pruebas de integración
+pytest tests/integration
+
+# Ejecutar pruebas e2e
+pytest tests/e2e
+```
 
 ## Contribución
 
-[Guía de contribución]
+1. Fork el repositorio
+2. Crear una rama para tu feature (`git checkout -b feature/amazing-feature`)
+3. Commit tus cambios (`git commit -m 'Add some amazing feature'`)
+4. Push a la rama (`git push origin feature/amazing-feature`)
+5. Abrir un Pull Request
 
 ## Licencia
 
-MIT
+Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
