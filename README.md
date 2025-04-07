@@ -33,7 +33,7 @@ Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
 
 1. Clonar el repositorio:
 ```bash
-git clone https://github.com/tu-usuario/mcp-claude.git
+git clone https://github.com/hectorflores28/mcp-claude.git
 cd mcp-claude
 ```
 
