@@ -147,3 +147,19 @@ MIT
 5. Abrir Pull Request
 
 Para más detalles, consulta nuestra [guía de contribución](CONTRIBUTING.md).
+
+## 📝 Historial de Cambios
+
+### v1.1.0 (7 de abril de 2025)
+- Implementación del sistema de caché distribuido con Redis
+- Mejora del sistema de logging con rotación de archivos
+- Implementación del sistema de plugins para extensibilidad
+- Configuración centralizada del proyecto
+- Implementación de pruebas unitarias y de integración
+- Documentación actualizada de API y endpoints
+
+### v1.0.0 (1 de abril de 2025)
+- Versión inicial del servidor MCP para Claude Desktop
+- Implementación de la estructura base con FastAPI
+- Sistema de autenticación con API Key y JWT
+- Endpoints básicos para Claude Desktop MCP
