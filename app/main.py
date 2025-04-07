@@ -1,13 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 import time
 import logging
 import signal
 import sys
+import os
+import platform
 
 from app.api.endpoints import (
-    # search_router,
     filesystem_router,
     tools_router,
     health_router,
@@ -32,11 +32,21 @@ def signal_handler(sig, frame):
     logger = logging.getLogger("mcp_claude")
     logger.info("Recibida señal de interrupción. Deteniendo servidor...")
     server_running = False
-    sys.exit(0)
+    
+    # Forzar la salida en Windows
+    if platform.system() == 'Windows':
+        os._exit(0)
+    else:
+        sys.exit(0)
 
 # Registrar manejadores de señales
-signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
-signal.signal(signal.SIGTERM, signal_handler)  # Señal de terminación
+if platform.system() == 'Windows':
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGBREAK, signal_handler)  # Ctrl+Break en Windows
+else:
+    signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
+    signal.signal(signal.SIGTERM, signal_handler)  # Señal de terminación
 
 app = FastAPI(
     title="MCP Claude API",
@@ -47,7 +57,7 @@ app = FastAPI(
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporalmente permite todos los orígenes para pruebas
+    allow_origins=settings.CORS_ORIGINS.split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,7 +68,6 @@ app.add_exception_handler(MCPClaudeError, mcp_claude_error_handler)
 app.add_exception_handler(Exception, http_exception_handler)
 
 # Incluir routers
-# app.include_router(search_router, prefix="/api", tags=["search"])
 app.include_router(filesystem_router, prefix="/api", tags=["filesystem"])
 app.include_router(tools_router, prefix="/api", tags=["tools"])
 app.include_router(health_router, prefix="/api", tags=["health"])
@@ -210,14 +219,28 @@ if __name__ == "__main__":
             host=settings.HOST,
             port=settings.PORT,
             reload=settings.DEBUG,
-            log_level="info"
+            log_level="info",
+            access_log=True,
+            loop="asyncio"
         )
         server = uvicorn.Server(config)
+        
+        # Configurar el servidor para que responda a señales
+        server.force_exit = True
         server.run()
+        
     except KeyboardInterrupt:
         logger.info("Servidor detenido por el usuario")
+        if platform.system() == 'Windows':
+            os._exit(0)
+        else:
+            sys.exit(0)
     except Exception as e:
         logger.error(f"Error al iniciar el servidor: {str(e)}")
         raise
     finally:
-        logger.info("Cerrando servidor...") 
+        logger.info("Cerrando servidor...")
+        if platform.system() == 'Windows':
+            os._exit(0)
+        else:
+            sys.exit(0) 
