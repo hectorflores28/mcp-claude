@@ -13,6 +13,8 @@ from app.api.endpoints import (
 )
 from app.core.config import settings
 from app.core.logging import LogManager
+from app.core.exceptions import MCPClaudeError
+from app.core.error_handlers import mcp_claude_error_handler, http_exception_handler
 import uvicorn
 
 app = FastAPI(
@@ -29,6 +31,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Registrar manejadores de errores
+app.add_exception_handler(MCPClaudeError, mcp_claude_error_handler)
+app.add_exception_handler(Exception, http_exception_handler)
 
 # Incluir routers
 app.include_router(search.router, prefix="/api")
