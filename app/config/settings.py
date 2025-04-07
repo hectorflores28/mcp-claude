@@ -17,12 +17,15 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=True, env="DEBUG")
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
+    VERSION: str = Field(default="1.1.0", env="VERSION")
+    PROJECT_NAME: str = Field(default="MCP-Claude", env="PROJECT_NAME")
     
     # Configuración del servidor
     HOST: str = Field(default="127.0.0.1", env="HOST")
     PORT: int = Field(default=8000, env="PORT")
     API_PREFIX: str = Field(default="/api", env="API_PREFIX")
     CORS_ORIGINS: str = Field(default="http://127.0.0.1:3000,http://127.0.0.1:8000", env="CORS_ORIGINS")
+    WORKERS: int = Field(default=1, env="WORKERS")
     
     # Seguridad
     API_KEY: str = Field(default="8Bg2auvsn1uVZfW9g8ybxZhkJRtc1cRyRctvv5MyniM", env="API_KEY")
@@ -65,6 +68,8 @@ class Settings(BaseSettings):
     
     # Configuración de logging
     LOG_FORMAT: str = Field(default="markdown", env="LOG_FORMAT")
+    LOG_MAX_BYTES: int = Field(default=10485760, env="LOG_MAX_BYTES")  # 10MB
+    LOG_BACKUP_COUNT: int = Field(default=5, env="LOG_BACKUP_COUNT")
     
     # Rate Limiting
     RATE_LIMIT_WINDOW: int = Field(default=60, env="RATE_LIMIT_WINDOW")  # segundos
@@ -76,6 +81,12 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: Optional[str] = Field(default=None, env="REDIS_PASSWORD")
     REDIS_SSL: bool = Field(default=False, env="REDIS_SSL")
     REDIS_DB: int = Field(default=0, env="REDIS_DB")
+    REDIS_TIMEOUT: int = Field(default=5, env="REDIS_TIMEOUT")
+    REDIS_MAX_CONNECTIONS: int = Field(default=10, env="REDIS_MAX_CONNECTIONS")
+    
+    # Caché
+    CACHE_TTL: int = Field(default=300, env="CACHE_TTL")  # 5 minutos
+    CACHE_PREFIX: str = Field(default="mcp:", env="CACHE_PREFIX")
     
     # Plugins
     PLUGINS_ENABLED: bool = Field(default=True, env="PLUGINS_ENABLED")
