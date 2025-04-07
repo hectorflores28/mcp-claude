@@ -1,108 +1,65 @@
-from fastapi import APIRouter, HTTPException
-from typing import Dict, List, Optional
-from pydantic import BaseModel
-from app.services.brave_search import BraveSearchService
-from app.services.claude_service import ClaudeService
-from app.services.filesystem_service import FileSystemService
+from fastapi import APIRouter, Depends, HTTPException
+from typing import Dict, Any, List
+from app.core.security import verify_api_key
+from app.core.logging import LogManager
+from app.services.mcp_service import MCPService
+from app.schemas.mcp import MCPStatus, MCPOperation
 
-router = APIRouter()
-brave_search = BraveSearchService()
-claude = ClaudeService()
-filesystem = FileSystemService()
+router = APIRouter(prefix="/mcp", tags=["mcp"])
+mcp_service = MCPService()
 
-class MCPRequest(BaseModel):
-    tool: str
-    parameters: Dict
-    context: Optional[Dict] = None
-
-class MCPResponse(BaseModel):
-    result: Dict
-    status: str
-    message: Optional[str] = None
-
-@router.post("/execute", response_model=MCPResponse)
-async def execute_mcp(request: MCPRequest):
+@router.get("/status", response_model=MCPStatus)
+async def mcp_status(api_key: str = Depends(verify_api_key)):
     """
-    Ejecuta una herramienta MCP.
-    
-    Args:
-        request: Solicitud MCP con herramienta y parámetros
-        
-    Returns:
-        Resultado de la ejecución
+    Obtiene el estado del protocolo MCP
     """
     try:
-        if request.tool == "buscar_en_brave":
-            results = await brave_search.get_web_results(
-                query=request.parameters.get("query", ""),
-                num_results=request.parameters.get("num_results", 10)
-            )
-            
-            # Si se solicita análisis de resultados
-            if request.parameters.get("analyze", False):
-                analysis = await claude.analyze_search_results(
-                    query=request.parameters["query"],
-                    results=results
-                )
-                return MCPResponse(
-                    result={
-                        "search_results": results,
-                        "analysis": analysis
-                    },
-                    status="success"
-                )
-            
-            return MCPResponse(
-                result={"search_results": results},
-                status="success"
-            )
-            
-        elif request.tool == "generar_markdown":
-            content = request.parameters.get("content", "")
-            format_type = request.parameters.get("format_type", "article")
-            
-            markdown = await claude.generate_markdown(content, format_type)
-            
-            # Si se solicita guardar el archivo
-            if request.parameters.get("save", False):
-                filename = request.parameters.get("filename", "output.md")
-                await filesystem.save_file(markdown, filename)
-                return MCPResponse(
-                    result={
-                        "content": markdown,
-                        "saved_as": filename
-                    },
-                    status="success"
-                )
-            
-            return MCPResponse(
-                result={"content": markdown},
-                status="success"
-            )
-            
-        elif request.tool == "listar_archivos":
-            files = await filesystem.list_files()
-            return MCPResponse(
-                result={"files": files},
-                status="success"
-            )
-            
-        elif request.tool == "leer_archivo":
-            filename = request.parameters.get("filename")
-            if not filename:
-                raise ValueError("Se requiere el nombre del archivo")
-                
-            content = await filesystem.read_file(filename)
-            return MCPResponse(
-                result=content,
-                status="success"
-            )
-            
-        else:
-            raise ValueError(f"Herramienta no soportada: {request.tool}")
-            
+        status = await mcp_service.get_status()
+        LogManager.log_info("Estado del protocolo MCP obtenido")
+        return status
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error al ejecutar la herramienta: {str(e)}"
-        ) 
+        LogManager.log_error("mcp", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/execute")
+async def execute_mcp(request: Dict[str, Any], api_key: str = Depends(verify_api_key)):
+    """
+    Ejecuta una solicitud MCP
+    """
+    try:
+        # Registrar solicitud
+        LogManager.log_mcp_request(
+            endpoint="/api/mcp/execute",
+            data=request
+        )
+        
+        # Procesar solicitud
+        response = await mcp_service.process_request(request)
+        
+        # Registrar respuesta
+        LogManager.log_mcp_response(
+            endpoint="/api/mcp/execute",
+            status=200 if "error" not in response else response["error"]["code"],
+            response_time=response.get("execution_time", 0)
+        )
+        
+        return response
+    except Exception as e:
+        LogManager.log_error("mcp", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/operations", response_model=List[Dict[str, Any]])
+async def get_recent_operations(
+    limit: int = 10,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Obtiene las operaciones MCP recientes
+    """
+    try:
+        operations = await mcp_service.get_recent_operations(limit)
+        LogManager.log_info(f"Obtenidas {len(operations)} operaciones recientes")
+        return operations
+    except Exception as e:
+        LogManager.log_error("mcp", str(e))
+        raise HTTPException(status_code=500, detail=str(e)) 

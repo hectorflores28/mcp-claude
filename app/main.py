@@ -1,249 +1,118 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-import time
-import logging
+from fastapi.responses import JSONResponse
+import uvicorn
 import signal
 import sys
-import os
-import platform
+from typing import Dict, Any
+import time
 
-from app.api.endpoints import (
-    filesystem_router,
-    tools_router,
-    health_router,
-    claude_router,
-    prompts_router,
-    logs_router
-)
-from app.core.config import settings
+from app.api.endpoints import router as api_router
 from app.core.logging import LogManager
-from app.core.exceptions import MCPClaudeError
-from app.core.error_handlers import mcp_claude_error_handler, http_exception_handler
-import uvicorn
-
-# Variable global para controlar el estado del servidor
-server_running = True
-
-def signal_handler(sig, frame):
-    """
-    Manejador de señales para detener el servidor correctamente
-    """
-    global server_running
-    logger = logging.getLogger("mcp_claude")
-    logger.info("Recibida señal de interrupción. Deteniendo servidor...")
-    server_running = False
-    
-    # Forzar la salida en Windows
-    if platform.system() == 'Windows':
-        os._exit(0)
-    else:
-        sys.exit(0)
-
-# Registrar manejadores de señales
-if platform.system() == 'Windows':
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGBREAK, signal_handler)  # Ctrl+Break en Windows
-else:
-    signal.signal(signal.SIGINT, signal_handler)  # Ctrl+C
-    signal.signal(signal.SIGTERM, signal_handler)  # Señal de terminación
+from app.core.config import settings
+from app.services.mcp_service import MCPService
 
 app = FastAPI(
-    title="MCP Claude API",
-    description="API para integración con Claude y herramientas MCP",
-    version="1.0.0"
+    title="MCP-Claude API",
+    description="API para integración con Claude Desktop usando el protocolo MCP",
+    version="0.1.0"
 )
 
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS.split(","),
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Registrar manejadores de errores
-app.add_exception_handler(MCPClaudeError, mcp_claude_error_handler)
-app.add_exception_handler(Exception, http_exception_handler)
+# Inicializar servicios
+mcp_service = MCPService()
 
-# Incluir routers
-app.include_router(filesystem_router, prefix="/api", tags=["filesystem"])
-app.include_router(tools_router, prefix="/api", tags=["tools"])
-app.include_router(health_router, prefix="/api", tags=["health"])
-app.include_router(claude_router, prefix="/api", tags=["claude"])
-app.include_router(prompts_router, prefix="/api", tags=["prompts"])
-app.include_router(logs_router, prefix="/api", tags=["logs"])
+# Manejadores de señales para apagado graceful
+def signal_handler(sig, frame):
+    LogManager.log_info("Recibida señal de apagado, cerrando...")
+    sys.exit(0)
 
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+# Middleware para logging de requests
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    """
-    Middleware para registrar todas las solicitudes HTTP
-    """
     start_time = time.time()
-    
-    # Registrar solicitud
-    data = None
-    if request.method in ["POST", "PUT"]:
-        try:
-            data = await request.json()
-        except:
-            data = None
-            
-    LogManager.log_api_request(
-        method=request.method,
-        path=request.url.path,
-        data=data
-    )
-    
-    # Procesar solicitud
     response = await call_next(request)
+    process_time = time.time() - start_time
     
-    # Calcular tiempo de respuesta
-    response_time = time.time() - start_time
-    
-    # Registrar respuesta
-    LogManager.log_api_response(
+    LogManager.log_request(
         method=request.method,
-        path=request.url.path,
+        url=str(request.url),
         status_code=response.status_code,
-        response_time=response_time
+        process_time=process_time
     )
     
     return response
 
+# Middleware para manejo de errores
+@app.middleware("http")
+async def error_handler(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        LogManager.log_error("api", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"detail": str(e)}
+        )
+
+# Eventos de inicio y apagado
 @app.on_event("startup")
 async def startup_event():
-    """
-    Evento de inicio de la aplicación
-    """
-    LogManager.setup_logger()
-    LogManager.log_info("Iniciando MCP Claude API...")
+    LogManager.log_info("Iniciando servidor MCP-Claude...")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """
-    Evento de cierre de la aplicación
-    """
-    LogManager.log_info("Cerrando MCP Claude API...")
+    LogManager.log_info("Cerrando servidor MCP-Claude...")
 
-@app.get("/")
-async def root():
-    """
-    Endpoint raíz
-    """
-    return {
-        "name": "MCP Claude API",
-        "version": "1.0.0",
-        "status": "running"
-    }
+# Incluir routers
+app.include_router(api_router, prefix="/api")
 
-@app.get("/api/health")
+# Endpoints de salud y estado
+@app.get("/health")
 async def health_check():
     """
-    Endpoint de salud detallado
+    Verifica el estado de salud del servidor
     """
     return {
         "status": "ok",
-        "version": "1.0.0",
+        "version": "0.1.0",
         "services": {
-            "claude": "available",
-            "filesystem": "available",
-            "logging": "available"
+            "mcp": await mcp_service.get_status(),
+            "logging": LogManager.is_available()
         }
     }
 
-@app.get("/api/mcp/status")
-async def mcp_status():
+@app.get("/status")
+async def status():
     """
-    Endpoint de estado para la integración con Claude Desktop MCP
+    Obtiene el estado detallado del servidor
     """
-    start_time = time.time()
-    
-    # Registrar la solicitud
-    LogManager.log_mcp_request(
-        endpoint="/api/mcp/status",
-        data={"method": "GET"}
-    )
-    
-    # Verificar servicios
-    services_status = {
-        "claude": "available",
-        "filesystem": "available",
-        "logging": "available"
-    }
-    
-    # Verificar configuración
-    config_status = {
-        "host": settings.HOST,
-        "port": settings.PORT,
-        "debug": settings.DEBUG,
-        "cors_enabled": True,
-        "api_key_configured": bool(settings.API_KEY)
-    }
-    
-    response_data = {
+    return {
         "status": "ok",
-        "version": "1.0.0",
-        "timestamp": time.time(),
-        "services": services_status,
-        "config": config_status,
-        "endpoints": {
-            "health": "/api/health",
-            "status": "/api/mcp/status",
-            "claude": "/api/claude",
-            "filesystem": "/api/filesystem",
-            "tools": "/api/tools"
+        "version": "0.1.0",
+        "environment": settings.ENVIRONMENT,
+        "debug": settings.DEBUG,
+        "services": {
+            "mcp": await mcp_service.get_status(),
+            "logging": LogManager.is_available()
         }
     }
-    
-    # Registrar la respuesta
-    response_time = time.time() - start_time
-    LogManager.log_mcp_response(
-        endpoint="/api/mcp/status",
-        status=200,
-        response_time=response_time
-    )
-    
-    return response_data
 
 if __name__ == "__main__":
-    # Configurar logging antes de iniciar el servidor
-    LogManager.setup_logger()
-    logger = logging.getLogger("mcp_claude")
-    logger.info(f"Iniciando servidor en {settings.HOST}:{settings.PORT}")
-    
-    try:
-        config = uvicorn.Config(
-            "app.main:app",
-            host=settings.HOST,
-            port=settings.PORT,
-            reload=settings.DEBUG,
-            log_level="info",
-            access_log=True,
-            loop="asyncio",
-            workers=1,
-            limit_concurrency=100,
-            timeout_keep_alive=5
-        )
-        server = uvicorn.Server(config)
-        
-        # Configurar el servidor para que responda a señales
-        server.force_exit = True
-        server.run()
-        
-    except KeyboardInterrupt:
-        logger.info("Servidor detenido por el usuario")
-        if platform.system() == 'Windows':
-            os._exit(0)
-        else:
-            sys.exit(0)
-    except Exception as e:
-        logger.error(f"Error al iniciar el servidor: {str(e)}")
-        raise
-    finally:
-        logger.info("Cerrando servidor...")
-        if platform.system() == 'Windows':
-            os._exit(0)
-        else:
-            sys.exit(0) 
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    ) 
