@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from typing import List, Dict, Optional
-from app.services.brave_search import BraveSearchService
+from app.services.brave_search import BraveSearch
 from app.services.claude_service import ClaudeService
 from app.core.logging import LogManager
 from app.core.security import verify_api_key
@@ -8,7 +8,7 @@ from app.schemas.search import SearchResponse, SearchAnalysis
 from app.core.markdown_logger import MarkdownLogger
 
 router = APIRouter()
-brave_search = BraveSearchService()
+brave_search = BraveSearch()
 claude_service = ClaudeService()
 markdown_logger = MarkdownLogger()
 
