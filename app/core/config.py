@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     PORT: int = int(os.getenv("PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
     
+    # Configuración de logging
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    
     # Configuración de seguridad
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-here")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")

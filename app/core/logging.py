@@ -13,9 +13,16 @@ from pathlib import Path
 log_dir = Path(settings.LOG_DIR)
 log_dir.mkdir(exist_ok=True, parents=True)
 
+# Obtener el nivel de logging
+try:
+    log_level = getattr(logging, settings.LOG_LEVEL.upper())
+except AttributeError:
+    log_level = logging.INFO
+    print(f"Advertencia: Nivel de logging '{settings.LOG_LEVEL}' no válido. Usando INFO.")
+
 # Configurar logging básico
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
+    level=log_level,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(log_dir / "app.log", mode='a', encoding='utf-8'),
@@ -58,7 +65,7 @@ class LogManager:
     def __init__(self):
         if not LogManager._initialized:
             self.logger = logging.getLogger("mcp_claude")
-            self.logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+            self.logger.setLevel(log_level)
             LogManager._initialized = True
     
     @classmethod
@@ -66,7 +73,7 @@ class LogManager:
         """Configura el sistema de logs"""
         # Configurar logger
         logger = logging.getLogger("mcp_claude")
-        logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+        logger.setLevel(log_level)
         
         # Limpiar handlers existentes
         for handler in logger.handlers[:]:
