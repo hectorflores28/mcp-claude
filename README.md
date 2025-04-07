@@ -4,32 +4,40 @@ Middleware de Control y Procesamiento para Claude API.
 
 ## Estado del Proyecto
 
-### Implementado ✅
+### FASE 1 - Estructura Similar
+
+#### Implementado ✅
 - Estructura base del proyecto
 - Integración con Claude API
-- Sistema de logging con formato JSON
-- Manejo de errores personalizado
-- Sistema de caché con TTL
-- Pruebas unitarias para:
+- Sistema de caché básico con TTL
+- Pruebas unitarias básicas para:
   - Cliente de Claude
   - Sistema de archivos
   - Servicio de búsqueda
   - Servicio de caché
-- Documentación de API
-- Configuración de Docker
 
-### En Progreso 🚧
-- Sistema de métricas
-- Mejoras en el sistema de caché
-- Pruebas de integración
+#### En Progreso 🚧
+- Estructura de directorios mejorada
+- Sistema de logs estandarizado
+- Pruebas unitarias completas
 - Documentación de desarrollo
 
-### Pendiente 📝
-- Implementación de rate limiting
-- Sistema de monitoreo en tiempo real
-- Optimización de rendimiento
-- Pruebas de carga
-- Documentación de despliegue
+#### Pendiente 📝
+- Implementación de subdirectorios en core/
+- Organización de servicios por tipo
+- Sistema de rotación de logs
+- Pruebas de integración
+- Fixtures comunes
+- Mocks específicos para Claude
+
+### FASE 2 - Mejoras de API
+
+#### Pendiente 📝
+- Sistema de manejo de errores
+- Caché avanzado
+- Sistema de métricas
+- Rate limiting
+- Monitoreo en tiempo real
 
 ## Estructura del Proyecto
 
@@ -39,15 +47,33 @@ mcp-claude/
 │   ├── api/
 │   │   └── endpoints/
 │   ├── core/
+│   │   ├── config/
+│   │   ├── security/
+│   │   └── logging/
 │   ├── services/
+│   │   ├── ai/
+│   │   ├── cache/
+│   │   ├── filesystem/
+│   │   └── metrics/
 │   ├── schemas/
 │   └── utils/
 ├── tests/
 │   ├── unit/
+│   │   ├── test_api/
+│   │   ├── test_services/
+│   │   └── test_utils/
 │   └── integration/
 ├── docs/
+│   ├── api/
+│   ├── development/
+│   └── deployment/
 ├── data/
+│   ├── cache/
+│   └── models/
 └── logs/
+    ├── app/
+    ├── access/
+    └── error/
 ```
 
 ## Requisitos
