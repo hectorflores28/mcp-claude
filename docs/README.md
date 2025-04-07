@@ -1,41 +1,41 @@
 # Documentación de MCP-Claude
 
-## Índice
+## Índice de Documentación
 
-1. [Introducción](introduction.md)
-2. [Instalación y Configuración](setup.md)
-3. [API Reference](api_reference.md)
-4. [Ejemplos de Uso](examples.md)
-5. [Casos de Uso Óptimos](use_cases.md)
-6. [Comparación con Gemini](comparison.md)
-7. [Solución de Problemas](troubleshooting.md)
+### Introducción
+- [Introducción a MCP-Claude](introduction.md): Visión general del proyecto y sus características principales.
 
-## Características Principales
+### Instalación y Configuración
+- [Guía de Instalación](installation.md): Instrucciones detalladas para instalar y configurar MCP-Claude.
+- [Configuración](setup.md): Guía completa de configuración avanzada.
 
-- Integración con Claude API de Anthropic
-- Sistema de logs avanzado
-- Manejo de errores robusto
-- Sistema de caché para optimizar respuestas
-- Métricas detalladas para monitoreo
-- Soporte para modelos Claude-3
+### Guías y Tutoriales
+- [Ejemplos de Uso](examples.md): Ejemplos prácticos de código para diferentes casos de uso.
+- [Casos de Uso](use_cases.md): Escenarios detallados de implementación con MCP-Claude.
 
-## Ventajas Comparativas
+### Solución de Problemas
+- [Solución de Problemas](troubleshooting.md): Guía para resolver problemas comunes.
+- [Comparación con Gemini](comparison.md): Análisis comparativo entre Claude y Gemini.
 
-- Mayor contexto para conversaciones largas
-- Mejor comprensión de instrucciones complejas
-- Respuestas más coherentes en tareas de razonamiento
-- Excelente para tareas de análisis y síntesis
+## Estructura del Proyecto
 
-## Requisitos
+```
+mcp-claude/
+├── app/                  # Código fuente de la aplicación
+│   ├── core/             # Componentes principales
+│   ├── services/         # Servicios de la aplicación
+│   └── api/              # Endpoints de la API
+├── tests/                # Pruebas unitarias y de integración
+├── docs/                 # Documentación
+├── Dockerfile            # Configuración de Docker
+├── docker-compose.yml    # Configuración de Docker Compose
+├── requirements.txt      # Dependencias de Python
+└── README.md             # Documentación principal
+```
 
-- Python 3.8+
-- Redis para caché
-- Prometheus para métricas
-- API Key de Anthropic
+## Recursos Adicionales
 
-## Enlaces Rápidos
-
-- [Guía de Inicio Rápido](quickstart.md)
-- [Referencia de API](api_reference.md)
-- [Ejemplos de Código](examples.md)
-- [FAQ](faq.md) 
+- [Documentación de Claude API](https://docs.anthropic.com/claude/reference/getting-started-with-the-api)
+- [Guía de API de Claude](https://docs.anthropic.com/claude/reference/complete)
+- [Foro de la Comunidad](https://community.anthropic.com/)
+- [Ejemplos de Código](https://github.com/anthropics/anthropic-sdk-python) 

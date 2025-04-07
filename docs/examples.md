@@ -1,42 +1,128 @@
-# Ejemplos de Uso de MCP-Claude
+# Ejemplos de Uso - MCP Claude
 
-## Instalación
+## 1. Búsqueda y Análisis de Información
 
-```bash
-pip install mcp-claude
-```
-
-## Configuración Básica
+### Ejemplo: Investigación de Tema
 
 ```python
-from mcp_claude import ClaudeClient
+import requests
+import json
 
-# Inicializar el cliente
-client = ClaudeClient(api_key="tu-api-key")
+# Configuración
+API_KEY = "tu_api_key"
+BASE_URL = "http://localhost:8000/api/v1"
 
-# Configurar opciones globales
-client.set_default_model("claude-3-opus")
-client.set_default_temperature(0.7)
-```
+# 1. Realizar búsqueda
+search_request = {
+    "jsonrpc": "2.0",
+    "method": "execute_tool",
+    "params": {
+        "tool_name": "buscar_en_brave",
+        "parameters": {
+            "query": "tendencias en inteligencia artificial 2024",
+            "num_results": 5
+        }
+    },
+    "id": 1
+}
 
-## Ejemplos de Uso
-
-### 1. Generación de Texto Simple
-
-```python
-# Generar una respuesta simple
-response = client.generate(
-    prompt="Explica el concepto de inteligencia artificial en tres párrafos."
+search_response = requests.post(
+    f"{BASE_URL}/search",
+    headers={"X-API-Key": API_KEY},
+    json=search_request
 )
-print(response.text)
+
+# 2. Analizar resultados
+analysis_request = {
+    "jsonrpc": "2.0",
+    "method": "execute_tool",
+    "params": {
+        "tool_name": "claude_analyze",
+        "parameters": {
+            "text": search_response.json()["result"]["result"]["results"][0]["description"],
+            "analysis_type": "summary",
+            "model": "claude-3-sonnet"
+        }
+    },
+    "id": 2
+}
+
+analysis_response = requests.post(
+    f"{BASE_URL}/claude/analyze",
+    headers={"X-API-Key": API_KEY},
+    json=analysis_request
+)
+
+print("Resumen del análisis:", analysis_response.json()["result"]["result"]["summary"])
 ```
 
-### 2. Conversación con Contexto
+## 2. Generación de Contenido
+
+### Ejemplo: Creación de Artículo
 
 ```python
-# Iniciar una conversación
-conversation = client.start_conversation()
+# 1. Generar estructura
+structure_request = {
+    "jsonrpc": "2.0",
+    "method": "execute_tool",
+    "params": {
+        "tool_name": "claude_generate",
+        "parameters": {
+            "prompt": "Genera una estructura de artículo sobre las ventajas de la IA en la medicina",
+            "max_tokens": 200,
+            "temperature": 0.7,
+            "model": "claude-3-opus"
+        }
+    },
+    "id": 1
+}
 
+structure_response = requests.post(
+    f"{BASE_URL}/claude/generate",
+    headers={"X-API-Key": API_KEY},
+    json=structure_request
+)
+
+# 2. Expandir cada sección
+sections = structure_response.json()["result"]["result"]["text"].split("\n")
+for section in sections:
+    content_request = {
+        "jsonrpc": "2.0",
+        "method": "execute_tool",
+        "params": {
+            "tool_name": "claude_generate",
+            "parameters": {
+                "prompt": f"Expande esta sección del artículo: {section}",
+                "max_tokens": 500,
+                "temperature": 0.7,
+                "model": "claude-3-opus"
+            }
+        },
+        "id": 2
+    }
+    
+    content_response = requests.post(
+        f"{BASE_URL}/claude/generate",
+        headers={"X-API-Key": API_KEY},
+        json=content_request
+    )
+    
+    print(f"Contenido de la sección: {content_response.json()['result']['result']['text']}")
+```
+
+## 3. Análisis de Sentimiento
+
+### Ejemplo: Análisis de Reseñas
+
+```python
+# Lista de reseñas
+reviews = [
+    "Excelente servicio, muy rápido y eficiente",
+    "El producto llegó dañado y el servicio al cliente fue pésimo",
+    "Buen precio pero la calidad podría ser mejor"
+]
+
+for review in reviews:
 # Añadir mensajes
 conversation.add_message("Hola, ¿podrías ayudarme con un problema de programación?")
 conversation.add_message("Estoy teniendo problemas con el manejo de errores en Python.")
