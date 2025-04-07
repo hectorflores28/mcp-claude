@@ -1,34 +1,46 @@
 # MCP-Claude
 
-Sistema de integración con Claude 3.5 Sonnet para Claude Desktop.
-https://www.anthropic.com/news/model-context-protocol
+Sistema de integración con Claude 3.5 Sonnet para Claude Desktop, implementando el Model Context Protocol (MCP).
 
-## Estado Actual
+## Estado del Proyecto
 
-### Implementado
-- ✅ Estructura base del proyecto
-- ✅ Configuración de FastAPI
-- ✅ Sistema de logs estandarizado
-- ✅ Integración con API de Claude
-- ✅ Endpoints para Claude Desktop MCP
-- ✅ Sistema de archivos
-- ✅ Autenticación con API Key
-- ✅ Endpoint de estado MCP mejorado
-- ✅ Sistema de logging optimizado
+### Versión Actual
+- Versión: 0.1.0 (Alpha)
+- Estado: En desarrollo activo
+- Última actualización: 2024-04-07
 
-### En Progreso
-- 🔄 Mejora de la integración con Claude Desktop
-- 🔄 Optimización del sistema de logs
-- 🔄 Documentación de API
+### Implementado ✅
+- Estructura base del proyecto
+- Configuración de FastAPI
+- Sistema de logs estandarizado
+- Integración básica con API de Claude
+- Endpoints para Claude Desktop MCP
+- Sistema de archivos básico
+- Autenticación con API Key
+- Endpoint de estado MCP
+- Sistema de logging básico
 
-### Pendiente
-"PENDING.md" [!PENDING.md]
+### En Desarrollo 🔄
+- Implementación del protocolo MCP completo
+- Sistema de recursos y herramientas
+- Mejora de la integración con Claude Desktop
+- Optimización del sistema de logs
+- Documentación de API
+
+### Próximas Versiones
+- v0.2.0: Implementación completa del protocolo MCP
+- v0.3.0: Sistema de recursos y herramientas
+- v0.4.0: Mejoras de seguridad y rendimiento
+- v1.0.0: Versión estable para producción
+
+Para ver la lista completa de tareas pendientes, consulta [PENDING.md](PENDING.md).
 
 ## Requisitos
 
 - Python 3.10+
 - API Key de Claude
 - Claude Desktop
+- Docker (opcional, para desarrollo)
 
 ## Instalación
 
@@ -57,6 +69,12 @@ mkdir logs data temp uploads
 5. Ejecutar el servidor:
 ```bash
 python -m app.main
+```
+
+### Usando Docker
+
+```bash
+docker-compose up -d
 ```
 
 ## Integración con Claude Desktop
@@ -103,6 +121,8 @@ mcp-claude/
 ├── logs/
 ├── temp/
 ├── uploads/
+├── tests/
+├── docs/
 ├── .env
 └── requirements.txt
 ```
@@ -113,6 +133,22 @@ mcp-claude/
 - `/api/mcp/status` - Estado para integración con Claude Desktop
 - `/api/claude/status` - Estado del servicio de Claude
 - `/api/claude/mcp/completion` - Endpoint para completado de Claude
+
+## Control de Versiones
+
+### Versiones
+- v0.1.0 (Alpha) - Versión inicial con funcionalidades básicas
+- v0.2.0 (Planned) - Implementación completa del protocolo MCP
+- v0.3.0 (Planned) - Sistema de recursos y herramientas
+- v0.4.0 (Planned) - Mejoras de seguridad y rendimiento
+- v1.0.0 (Planned) - Versión estable para producción
+
+### Ramas
+- `main` - Rama principal, código estable
+- `develop` - Rama de desarrollo, características en progreso
+- `feature/*` - Ramas para nuevas características
+- `bugfix/*` - Ramas para correcciones de errores
+- `release/*` - Ramas para preparación de releases
 
 ## Solución de Problemas
 
@@ -133,6 +169,21 @@ mcp-claude/
 - Comprobar que `LOG_LEVEL` está configurado correctamente en `.env`
 - Asegurarse de que el servidor se inicia con `python -m app.main`
 
+## Contribución
+
+Para contribuir al proyecto:
+
+1. Fork el repositorio
+2. Crear una rama para tu característica (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abrir un Pull Request
+
 ## Licencia
 
 Este proyecto está licenciado bajo la Licencia MIT - ver el archivo [LICENSE](LICENSE) para más detalles.
+
+## Contacto
+
+- GitHub Issues: [Reportar un problema](https://github.com/hectorflores28/mcp-claude/issues)
+- Email: [tu-email@ejemplo.com]
