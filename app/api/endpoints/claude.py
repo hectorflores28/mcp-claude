@@ -14,6 +14,26 @@ router = APIRouter(prefix="/claude", tags=["claude"])
 claude_service = ClaudeService()
 markdown_logger = MarkdownLogger()
 
+@router.get("/status")
+async def claude_status(
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Verifica el estado del servicio de Claude.
+    
+    Args:
+        api_key: API key para autenticación
+        
+    Returns:
+        Dict: Estado del servicio
+    """
+    return {
+        "status": "ok",
+        "model": claude_service.model,
+        "max_tokens": claude_service.max_tokens,
+        "temperature": claude_service.temperature
+    }
+
 @router.post("/analyze", response_model=ClaudeResponse)
 async def analyze_text(
     request: ClaudeRequest,

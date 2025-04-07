@@ -27,7 +27,7 @@ app = FastAPI(
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],  # Temporalmente permite todos los orígenes para pruebas
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,10 +54,17 @@ async def log_requests(request: Request, call_next):
     start_time = time.time()
     
     # Registrar solicitud
+    data = None
+    if request.method in ["POST", "PUT"]:
+        try:
+            data = await request.json()
+        except:
+            data = None
+            
     LogManager.log_api_request(
         method=request.method,
         path=request.url.path,
-        data=await request.json() if request.method in ["POST", "PUT"] else None
+        data=data
     )
     
     # Procesar solicitud
@@ -100,6 +107,21 @@ async def root():
         "name": "MCP Claude API",
         "version": "1.0.0",
         "status": "running"
+    }
+
+@app.get("/api/health")
+async def health_check():
+    """
+    Endpoint de salud detallado
+    """
+    return {
+        "status": "ok",
+        "version": "1.0.0",
+        "services": {
+            "claude": "available",
+            "filesystem": "available",
+            "logging": "available"
+        }
     }
 
 if __name__ == "__main__":

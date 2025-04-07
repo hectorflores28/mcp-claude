@@ -17,6 +17,58 @@ class ClaudeService:
         self.temperature = settings.CLAUDE_TEMPERATURE
         self.markdown_logger = MarkdownLogger()
     
+    async def mcp_completion(
+        self,
+        prompt: str,
+        max_tokens: Optional[int] = None,
+        temperature: Optional[float] = None
+    ) -> Dict[str, Any]:
+        """
+        Método específico para la integración con Claude Desktop MCP
+        
+        Args:
+            prompt: Prompt para Claude
+            max_tokens: Número máximo de tokens (opcional)
+            temperature: Temperatura para la generación (opcional)
+            
+        Returns:
+            Dict con la respuesta de Claude
+        """
+        try:
+            # Usar valores proporcionados o los predeterminados
+            tokens = max_tokens or self.max_tokens
+            temp = temperature or self.temperature
+            
+            # Generar respuesta con Claude
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=tokens,
+                temperature=temp,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            # Extraer contenido generado
+            generated_content = response.content[0].text
+            
+            # Registrar operación
+            LogManager.log_claude_operation(
+                "mcp_completion",
+                prompt[:100] + "...",
+                generated_content[:100] + "..."
+            )
+            
+            return {
+                "content": generated_content,
+                "model": self.model,
+                "tokens_used": response.usage.total_tokens
+            }
+            
+        except Exception as e:
+            LogManager.log_error("claude", str(e))
+            raise
+    
     async def generate_markdown(
         self,
         content: str,
