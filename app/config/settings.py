@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = Field(default="MCP-Claude", env="PROJECT_NAME")
     
     # Configuración del servidor
-    HOST: str = Field(default="127.0.0.1", env="HOST")
-    PORT: int = Field(default=8000, env="PORT")
-    API_PREFIX: str = Field(default="/api", env="API_PREFIX")
-    CORS_ORIGINS: str = Field(default="http://127.0.0.1:3000,http://127.0.0.1:8000", env="CORS_ORIGINS")
+    HOST: str = "0.0.0.0"
+    PORT: int = 8080
+    API_PREFIX: str = "/api"
+    CORS_ORIGINS: str = "http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:3000,http://localhost:3000"
     WORKERS: int = Field(default=1, env="WORKERS")
     
     # Seguridad
@@ -109,6 +109,10 @@ class Settings(BaseSettings):
         ],
         env="PLUGIN_HOOKS"
     )
+    
+    # Configuración de la terminal de Windows
+    PYTHONUNBUFFERED: str = Field(default="1", env="PYTHONUNBUFFERED")
+    PYTHONIOENCODING: str = Field(default="utf-8", env="PYTHONIOENCODING")
     
     @validator("ALLOWED_EXTENSIONS", pre=True)
     def parse_allowed_extensions(cls, v):
