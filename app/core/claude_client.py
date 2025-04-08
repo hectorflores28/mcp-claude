@@ -20,7 +20,9 @@ class ClaudeClient:
         if not self.api_key:
             raise ValueError("CLAUDE_API_KEY no encontrada en variables de entorno")
         
+        # Inicializar cliente con configuración básica
         self.client = anthropic.Anthropic(api_key=self.api_key)
+        
         self.model = settings.CLAUDE_MODEL
         self.max_tokens = settings.CLAUDE_MAX_TOKENS
         self.temperature = settings.CLAUDE_TEMPERATURE

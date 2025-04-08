@@ -37,18 +37,22 @@ class Cache:
         """Inicializa el cliente de Redis con configuración optimizada."""
         try:
             # Configurar pool de conexiones
-            self.pool = ConnectionPool(
-                host=settings.REDIS_HOST,
-                port=settings.REDIS_PORT,
-                password=settings.REDIS_PASSWORD,
-                db=settings.REDIS_DB,
-                ssl=settings.REDIS_SSL,
-                socket_timeout=settings.REDIS_TIMEOUT,
-                socket_connect_timeout=settings.REDIS_TIMEOUT,
-                max_connections=settings.REDIS_MAX_CONNECTIONS,
-                retry_on_timeout=True,
-                decode_responses=True
-            )
+            connection_kwargs = {
+                'host': settings.REDIS_HOST,
+                'port': settings.REDIS_PORT,
+                'password': settings.REDIS_PASSWORD,
+                'db': settings.REDIS_DB,
+                'socket_timeout': settings.REDIS_TIMEOUT,
+                'socket_connect_timeout': settings.REDIS_TIMEOUT,
+                'max_connections': settings.REDIS_MAX_CONNECTIONS,
+                'retry_on_timeout': True,
+                'decode_responses': True
+            }
+            
+            if settings.REDIS_SSL:
+                connection_kwargs['ssl'] = True
+            
+            self.pool = ConnectionPool(**connection_kwargs)
             
             self.redis = redis.Redis(connection_pool=self.pool)
             self.prefix = settings.CACHE_PREFIX

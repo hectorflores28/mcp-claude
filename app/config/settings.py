@@ -8,12 +8,15 @@ cargando valores desde variables de entorno con valores predeterminados.
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from pydantic import BaseSettings, Field, validator
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     """Configuración de la aplicación."""
     
     # Configuración general
+    APP_NAME: str = Field(default="MCP-Claude", env="APP_NAME")
+    API_V1_STR: str = Field(default="/api", env="API_V1_STR")
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=True, env="DEBUG")
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")

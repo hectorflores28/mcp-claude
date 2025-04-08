@@ -121,10 +121,10 @@
   "authentication": {
     "type": "api_key",
     "header": "X-API-Key",
-    "key": "your_api_key_here"
+    "key": "mcp-claude-api-key-2024-secure-token-xyz789"
   },
   "mcp_endpoint": "http://localhost:8000/api/mcp",
-  "api_key": "tu-clave-secreta",
+  "api_key": "mcp-claude-api-key-2024-secure-token-xyz789",
   "cache_enabled": true,
   "retry_policy": {
     "max_attempts": 3,
