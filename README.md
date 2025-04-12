@@ -1,5 +1,7 @@
 # 🚀 MCP-Claude
 
+![Servidor](src/public/screenshot.png)
+
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109.2-green.svg)](https://fastapi.tiangolo.com/)
 [![Redis](https://img.shields.io/badge/Redis-6.0+-red.svg)](https://redis.io/)
@@ -46,10 +48,115 @@
 ## 🛠️ Requisitos
 
 - Python 3.11+
-- Redis 6.0+
-- XAMPP (para desarrollo local)
-- Visual Studio Build Tools (para Windows)
-- Rust (para compilación de dependencias)
+- Docker (para Redis)
+- Git
+
+## 🚀 Instalación Rápida
+
+## MCP-Claude Desktop Integration
+
+## Descripción
+Este proyecto implementa una integración entre Claude Desktop y un servidor FastAPI utilizando el protocolo MCP (Message Control Protocol). Permite la comunicación bidireccional entre la aplicación de escritorio y el servidor web.
+
+## Requisitos
+- Python 3.11 (recomendado)
+- Docker (para Redis)
+- Git
+
+## Configuración del Entorno
+
+1. Clonar el repositorio:
+```bash
+git clone https://github.com/tu-usuario/mcp-claude.git
+cd mcp-claude
+```
+
+2. Crear y activar el entorno virtual:
+```bash
+# Usando Python 3.11
+python3.11 -m venv .venv311
+source .venv311/Scripts/activate  # En Windows
+source .venv311/bin/activate     # En Linux/Mac
+```
+
+3. Instalar dependencias:
+```bash
+pip install -r requirements.txt
+```
+
+4. Configurar variables de entorno:
+```bash
+cp .env.example .env
+# Editar .env con tus configuraciones
+```
+
+5. Iniciar Redis con Docker:
+```bash
+docker run --name redis -p 6379:6379 -d redis
+```
+
+## Estructura del Proyecto
+```
+mcp-claude/
+├── app/
+│   ├── core/
+│   │   ├── claude_client.py
+│   │   ├── config.py
+│   │   └── redis_client.py
+│   ├── routes/
+│   │   ├── chat.py
+│   │   └── files.py
+│   └── main.py
+├── tests/
+├── .env.example
+├── .gitignore
+├── requirements.txt
+└── README.md
+```
+
+## Ejecución
+
+1. Asegúrate de que Redis esté corriendo:
+```bash
+docker ps
+```
+
+2. Iniciar el servidor FastAPI:
+```bash
+# En Windows
+.venv311/Scripts/python.exe -m uvicorn app.main:app --reload
+
+# En Linux/Mac
+source .venv311/bin/activate
+python -m uvicorn app.main:app --reload
+```
+
+El servidor estará disponible en:
+- API: http://127.0.0.1:8000
+- Documentación: http://127.0.0.1:8000/docs
+- Health Check: http://127.0.0.1:8000/health
+
+## Configuración de Claude Desktop
+1. Copiar el archivo de configuración:
+```bash
+cp claude_desktop_config.example.json claude_desktop_config.json
+```
+
+2. Editar `claude_desktop_config.json` con tus configuraciones.
+
+## Notas Importantes
+- El archivo `claude_desktop_config.json` está excluido del control de versiones por seguridad
+- Se recomienda usar Python 3.11 para evitar problemas de compatibilidad
+- Redis debe estar corriendo para el funcionamiento completo de la aplicación
+
+## Licencia
+MIT
+
+## 🛠️ Requisitos
+
+- Python 3.11+
+- Docker (para Redis)
+- Git
 
 ## 🚀 Instalación Rápida
 
@@ -71,7 +178,7 @@ cp .env.example .env
 # Editar .env con tus configuraciones
 
 # Iniciar Redis
-redis-server
+docker run --name redis -p 6379:6379 -d redis
 
 # Iniciar servidor
 uvicorn app.main:app --reload

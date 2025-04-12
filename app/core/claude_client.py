@@ -5,7 +5,7 @@ import asyncio
 from typing import Dict, Any, Optional, List
 import backoff
 from functools import lru_cache
-import anthropic
+import httpx
 from app.core.config import settings
 from app.core.logging import LogManager
 from app.core.cache import get_cache
@@ -20,8 +20,15 @@ class ClaudeClient:
         if not self.api_key:
             raise ValueError("CLAUDE_API_KEY no encontrada en variables de entorno")
         
-        # Inicializar cliente con configuración básica
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+        # Configurar cliente HTTP personalizado
+        self.http_client = httpx.Client(
+            timeout=30.0,
+            headers={
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+        )
         
         self.model = settings.CLAUDE_MODEL
         self.max_tokens = settings.CLAUDE_MAX_TOKENS
@@ -72,36 +79,47 @@ class ClaudeClient:
         
         start_time = time.time()
         try:
-            # Generar respuesta con Claude
-            response = await self.client.messages.create(
-                model=self.model,
-                max_tokens=tokens,
-                temperature=temp,
-                messages=[
+            # Preparar datos para la petición
+            data = {
+                "model": self.model,
+                "max_tokens": tokens,
+                "temperature": temp,
+                "messages": [
                     {"role": "user", "content": prompt}
                 ]
+            }
+            
+            # Hacer la petición directamente con httpx
+            response = self.http_client.post(
+                "https://api.anthropic.com/v1/messages",
+                json=data
             )
+            response.raise_for_status()
+            result = response.json()
             
             response_time = time.time() - start_time
             
             # Formatear respuesta
-            result = {
-                "content": response.content[0].text,
-                "tokens_used": response.usage.total_tokens,
+            formatted_result = {
+                "content": result["content"][0]["text"],
+                "tokens_used": result["usage"]["total_tokens"],
                 "model": self.model,
                 "execution_time": response_time
             }
             
             # Guardar en caché si está habilitado
             if cache_enabled:
-                await self._cache.set(cache_key, result, ttl=ttl)
+                await self._cache.set(cache_key, formatted_result, ttl=ttl)
             
-            self.logger.info(f"Respuesta generada en {response_time:.2f}s usando {result['tokens_used']} tokens")
-            return result
+            self.logger.info(f"Respuesta generada en {response_time:.2f}s usando {formatted_result['tokens_used']} tokens")
+            return formatted_result
             
         except Exception as e:
             self.logger.error(f"Error al generar respuesta: {str(e)}")
             raise
+        finally:
+            # Cerrar el cliente HTTP
+            self.http_client.close()
     
     @backoff.on_exception(
         backoff.expo,
@@ -134,7 +152,7 @@ class ClaudeClient:
             prompt = f"Analiza el siguiente texto según el tipo '{analysis_type}' y proporciona resultados detallados:\n\n{text}"
         
         # Generar respuesta
-        response = await this.generate_response(prompt, cache_enabled=False)
+        response = await self.generate_response(prompt, cache_enabled=False)
         
         # Formatear resultado
         result = {

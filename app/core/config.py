@@ -1,16 +1,13 @@
-from pydantic_settings import BaseSettings
+import os
 from pathlib import Path
 from typing import List
-import os
 from dotenv import load_dotenv
-from pydantic import field_validator
 
 # Cargar variables de entorno
 load_dotenv()
 
-class Settings(BaseSettings):
+class Settings:
     # API Keys
-    # BRAVE_API_KEY: str = os.getenv("BRAVE_API_KEY", "")
     CLAUDE_API_KEY: str = os.getenv("CLAUDE_API_KEY", "")
     API_KEY: str = os.getenv("API_KEY", "your-api-key-here")
     
@@ -53,20 +50,12 @@ class Settings(BaseSettings):
     DEFAULT_SEARCH_LANGUAGE: str = os.getenv("DEFAULT_SEARCH_LANGUAGE", "es")
     
     # Configuración del sistema de archivos
-    MAX_FILE_SIZE: str = os.getenv("MAX_FILE_SIZE", "10485760")
+    MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", "10485760"))
     ALLOWED_EXTENSIONS: List[str] = os.getenv("ALLOWED_EXTENSIONS", "md,txt,json").split(",")
     UPLOAD_DIR: Path = BASE_DIR / os.getenv("UPLOAD_DIR", "uploads")
     
-    @field_validator("MAX_FILE_SIZE")
-    @classmethod
-    def validate_max_file_size(cls, v: str) -> int:
-        try:
-            return int(v.split()[0])
-        except (ValueError, IndexError):
-            return 10485760  # valor por defecto de 10MB
-    
-    class Config:
-        case_sensitive = True
+    # Configuración de CORS
+    CORS_ORIGINS: List[str] = os.getenv("CORS_ORIGINS", "http://127.0.0.1:3000,http://127.0.0.1:8000").split(",")
 
 # Instancia global de configuración
 settings = Settings() 
