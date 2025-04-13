@@ -10,8 +10,6 @@
 ![Status](https://img.shields.io/badge/Estado-Activo-brightgreen.svg)
 [![License: MIT](https://img.shields.io/badge/Licencia-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-> 🤖 MCP (Model Context Protocol) es un servidor personalizado que potencia la integración de Claude AI en aplicaciones de escritorio. Diseñado para desarrolladores que necesitan una interfaz robusta y eficiente para interactuar con modelos de lenguaje de Anthropic, ofrece caché distribuido, procesamiento asíncrono y una API REST completa. Con soporte para plugins, logging avanzado y métricas en tiempo real.
-
 ## Acerca del proyecto
 ![Servidor](src/public/screenshot.png)
 Aplicación de escritorio que integra la API de Claude de Anthropic, proporcionando una interfaz local para interactuar con el modelo de lenguaje. Incluye funcionalidades de caché, procesamiento asíncrono y una API REST para integración con otras aplicaciones.
